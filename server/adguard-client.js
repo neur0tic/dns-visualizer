@@ -143,6 +143,38 @@ class AdGuardClient {
   }
 
   /**
+   * Fetch statistics from AdGuard Home
+   * @returns {Promise<Object>} Statistics object
+   */
+  async getStats() {
+    try {
+      const url = `${this.baseUrl}/control/stats`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': this.authHeader
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`AdGuard API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return {
+        numDnsQueries: data.num_dns_queries || 0,
+        numBlockedFiltering: data.num_blocked_filtering || 0,
+        avgProcessingTime: data.avg_processing_time || 0, // in milliseconds
+        topQueriedDomains: data.top_queried_domains || [],
+        topBlockedDomains: data.top_blocked_domains || [],
+        topClients: data.top_clients || []
+      };
+    } catch (error) {
+      console.error('Error fetching AdGuard stats:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Test connection to AdGuard Home
    * @returns {Promise<boolean>}
    */

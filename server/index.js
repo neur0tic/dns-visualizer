@@ -70,6 +70,7 @@ app.get('/health', (req, res) => {
 // WebSocket connection handling
 const activeConnections = new Set();
 let pollingInterval = null;
+let statsInterval = null;
 let processedLogIds = new Set();
 const MAX_PROCESSED_IDS = 1000;
 
@@ -82,9 +83,15 @@ wss.on('connection', (ws) => {
     activeConnections.delete(ws);
 
     // Stop polling if no clients
-    if (activeConnections.size === 0 && pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
+    if (activeConnections.size === 0) {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      if (statsInterval) {
+        clearInterval(statsInterval);
+        statsInterval = null;
+      }
       console.log('Polling stopped - no active clients');
     }
   });
@@ -97,6 +104,7 @@ wss.on('connection', (ws) => {
   // Start polling if this is the first client
   if (activeConnections.size === 1 && !pollingInterval) {
     startPolling();
+    startStatsPolling();
   }
 });
 
@@ -148,6 +156,29 @@ async function startPolling() {
 }
 
 /**
+ * Start polling AdGuard Home for statistics
+ */
+async function startStatsPolling() {
+  console.log('Starting stats polling...');
+
+  // Send stats every 5 seconds
+  statsInterval = setInterval(async () => {
+    try {
+      const stats = await adguardClient.getStats();
+      
+      // Broadcast stats to all clients
+      broadcast({
+        type: 'stats',
+        timestamp: new Date().toISOString(),
+        data: stats
+      });
+    } catch (error) {
+      console.error('Error polling stats:', error.message);
+    }
+  }, 5000); // Poll every 5 seconds
+}
+
+/**
  * Process a DNS log entry and broadcast to clients
  * @param {Object} log - DNS log entry
  */
@@ -169,6 +200,7 @@ async function processDNSEntry(log) {
             domain: log.domain,
             queryType: log.type,
             ip: ip,
+            clientIp: log.client,
             elapsed: log.elapsed,
             status: log.status,
             cached: log.cached,
@@ -190,6 +222,7 @@ async function processDNSEntry(log) {
       data: {
         domain: log.domain,
         queryType: log.type,
+        clientIp: log.client,
         elapsed: log.elapsed,
         status: log.status,
         cached: log.cached,

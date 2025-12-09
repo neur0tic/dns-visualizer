@@ -32,6 +32,15 @@ body {
     z-index: 100;
     display: flex;
     flex-direction: column;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar on right side */
+body.sidebar-right .sidebar {
+    left: auto;
+    right: 0;
+    border-right: none;
+    border-left: 1px solid rgba(246, 173, 85, 0.12);
 }
 
 /* Sidebar Sections */
@@ -46,6 +55,28 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+/* Footer Section */
+.sidebar-footer {
+    padding: 20px 24px;
+    margin-top: auto;
+    border-top: 1px solid rgba(246, 173, 85, 0.08);
+    text-align: center;
+    font-size: 12px;
+    color: rgba(203, 213, 224, 0.6);
+}
+
+.footer-text {
+    font-weight: 600;
+    color: rgba(203, 213, 224, 0.7);
+    margin-bottom: 4px;
+}
+
+.footer-email {
+    font-size: 11px;
+    color: rgba(203, 213, 224, 0.5);
+    font-family: 'Courier New', monospace;
 }
 
 /* Header Section */
@@ -186,7 +217,7 @@ body {
     margin: 6px 0;
     border-radius: 6px;
     background: rgba(45, 55, 72, 0.25);
-    border-left: 3px solid rgba(246, 173, 85, 0.6);
+    border-left: 3px solid rgba(88, 246, 85, 0.6);
     font-size: 12px;
     color: #cbd5e0;
     animation: slideInFromLeft 0.5s ease-out, fadeOutSlideUp 0.8s ease-in 4.2s forwards;
@@ -199,6 +230,11 @@ body {
     font-size: 10px;
     font-weight: 500;
     margin-bottom: 4px;
+}
+
+.log-entry .log-client {
+    color: #f6ad55;
+    font-weight: 600;
 }
 
 .log-entry .log-domain {
@@ -215,7 +251,7 @@ body {
 }
 
 .log-entry .log-ip {
-    color: #f6ad55;
+    color: #ffffff;
     font-weight: 600;
 }
 
@@ -386,7 +422,13 @@ body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 101;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Move theme toggle to top-left when sidebar is on right */
+body.sidebar-right .theme-toggle {
+    right: auto;
+    left: 24px;
 }
 
 .theme-toggle:hover {
@@ -401,6 +443,51 @@ body {
     font-size: 22px;
     cursor: pointer;
     padding: 0;
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+}
+
+/* Sidebar Position Toggle */
+.sidebar-toggle {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    background: rgba(13, 17, 35, 0.92);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(246, 173, 85, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 101;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Move sidebar toggle to top-left when sidebar is on right */
+body.sidebar-right .sidebar-toggle {
+    right: auto;
+    left: 24px;
+    top: 80px;
+}
+
+.sidebar-toggle:hover {
+    background: rgba(13, 17, 35, 1);
+    border-color: rgba(246, 173, 85, 0.4);
+    transform: translateY(-2px);
+}
+
+.sidebar-toggle button {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 0;
+    transform: rotate(0deg);
+    transition: transform 0.3s ease;
+    color: #ffffff;
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+}
+
+body.sidebar-right .sidebar-toggle button {
+    transform: rotate(180deg);
 }
 
 /* Light Mode */
@@ -449,6 +536,10 @@ body.light-mode .log-entry {
 
 body.light-mode .log-entry .log-time {
     color: #666;
+}
+
+body.light-mode .log-entry .log-client {
+    color: #4264fb;
 }
 
 body.light-mode .log-entry .log-domain {
@@ -506,6 +597,42 @@ body.light-mode .theme-toggle {
 body.light-mode .theme-toggle:hover {
     background: rgba(255, 255, 255, 1);
     border-color: rgba(0, 0, 0, 0.2);
+}
+
+body.light-mode .theme-toggle button {
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.1));
+}
+
+body.light-mode .sidebar-toggle {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+body.light-mode .sidebar-toggle button {
+    color: #333;
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.1));
+}
+
+body.light-mode.sidebar-right .sidebar {
+    border-left-color: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .sidebar-footer {
+    border-top-color: rgba(0, 0, 0, 0.06);
+    color: rgba(0, 0, 0, 0.5);
+}
+
+body.light-mode .footer-text {
+    color: rgba(0, 0, 0, 0.7);
+}
+
+body.light-mode .footer-email {
+    color: rgba(0, 0, 0, 0.5);
 }
 
 /* Loading State */

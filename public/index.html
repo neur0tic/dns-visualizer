@@ -53,6 +53,10 @@
                 <span>Avg Response</span>
                 <span class="stat-value" id="stat-avg">0ms</span>
             </div>
+            <div class="stat-item">
+                <span>AdGuard Processing</span>
+                <span class="stat-value" id="stat-adguard-avg">0ms</span>
+            </div>
 
             <!-- Response Time Graph -->
             <div class="response-graph">
@@ -65,11 +69,22 @@
             <div class="log-stream-title">DNS Query Log</div>
             <div class="log-stream-content" id="log-container"></div>
         </div>
+
+        <!-- Footer Section -->
+        <div class="sidebar-footer">
+            <div class="footer-text">Author: Azwan Ngali</div>
+            <div class="footer-email">azwan.ngali@merakit.my</div>
+        </div>
     </div>
 
     <!-- Theme Toggle -->
     <div class="theme-toggle" id="theme-toggle">
         <button id="theme-icon">☀️</button>
+    </div>
+
+    <!-- Sidebar Position Toggle -->
+    <div class="sidebar-toggle" id="sidebar-toggle" title="Move sidebar to other side">
+        <button id="sidebar-icon">⇄</button>
     </div>
 
     <!-- DNS Type Legend -->

@@ -26,6 +26,8 @@ const DNS_TYPE_COLORS = {
 let map;
 let ws;
 let isDarkMode = true;
+let isSidebarRight = false;
+let navigationControl = null;
 let activeArcs = [];
 let totalQueries = 0;
 let blockedQueries = 0;
@@ -40,10 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
     connectWebSocket();
     initResponseChart();
 
+    // Load saved sidebar position
+    const savedPosition = localStorage.getItem('sidebarPosition');
+    if (savedPosition === 'right') {
+        isSidebarRight = true;
+        document.body.classList.add('sidebar-right');
+    }
+
     // Add theme toggle event listener
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
+    }
+
+    // Add sidebar position toggle event listener
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebarPosition);
     }
 });
 
@@ -71,8 +86,10 @@ function initMap() {
             .addTo(map);
     });
 
-    // Add navigation controls at bottom-right
-    map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+    // Add navigation controls at bottom-right (or bottom-left if sidebar is on right)
+    navigationControl = new maplibregl.NavigationControl();
+    const controlPosition = isSidebarRight ? 'bottom-left' : 'bottom-right';
+    map.addControl(navigationControl, controlPosition);
 }
 
 /**
@@ -121,6 +138,8 @@ function connectWebSocket() {
 function handleMessage(data) {
     if (data.type === 'dns_query') {
         handleDNSQuery(data);
+    } else if (data.type === 'stats') {
+        handleStats(data);
     } else if (data.type === 'error') {
         console.error('Server error:', data.message);
         addLogEntry({
@@ -128,6 +147,21 @@ function handleMessage(data) {
             details: data.message,
             isError: true
         });
+    }
+}
+
+/**
+ * Handle AdGuard stats update
+ */
+function handleStats(event) {
+    const statAdguardAvg = document.getElementById('stat-adguard-avg');
+    if (statAdguardAvg && event.data.avgProcessingTime !== undefined) {
+        const avgTime = event.data.avgProcessingTime.toFixed(2);
+        if (statAdguardAvg.textContent !== `${avgTime}ms`) {
+            statAdguardAvg.textContent = `${avgTime}ms`;
+            statAdguardAvg.classList.add('updated');
+            setTimeout(() => statAdguardAvg.classList.remove('updated'), 600);
+        }
     }
 }
 
@@ -148,6 +182,7 @@ function handleDNSQuery(event) {
     addLogEntry({
         domain: event.data.domain,
         ip: event.data.ip || 'No answer',
+        clientIp: event.data.clientIp,
         type: event.data.queryType,
         elapsed: event.data.elapsed,
         cached: event.data.cached,
@@ -302,7 +337,7 @@ function addArcLabel(destination, data) {
         <div class="label-domain">${data.domain || 'Unknown'}</div>
         <div class="label-detail">
             ${data.ip ? `<span class="label-ip">${data.ip}</span> • ` : ''}
-            ${data.type || 'A'} • ${data.elapsed || 0}ms
+            ${data.queryType || data.type || 'A'} • ${data.elapsed || 0}ms
             ${data.cached ? ' • Cached' : ''}
         </div>
         <div class="label-detail">${destination.city || 'Unknown'}, ${destination.country || 'Unknown'}</div>
@@ -342,7 +377,7 @@ function addLogEntry(entry) {
     const time = entry.timestamp ? entry.timestamp.toLocaleTimeString() : new Date().toLocaleTimeString();
 
     logDiv.innerHTML = `
-        <div class="log-time">${time}</div>
+        <div class="log-time">${time}${entry.clientIp ? ` • <span class="log-client">${entry.clientIp}</span>` : ''}</div>
         <div class="log-domain">${entry.domain || 'Unknown'}</div>
         <div class="log-details">
             ${entry.ip ? `<span class="log-ip">${entry.ip}</span> • ` : ''}
@@ -601,6 +636,29 @@ function toggleTheme() {
 
     // Redraw chart with new theme colors
     drawResponseChart();
+}
+
+/**
+ * Toggle sidebar position (left/right)
+ */
+function toggleSidebarPosition() {
+    isSidebarRight = !isSidebarRight;
+    
+    if (isSidebarRight) {
+        document.body.classList.add('sidebar-right');
+    } else {
+        document.body.classList.remove('sidebar-right');
+    }
+    
+    // Move navigation controls to opposite corner
+    if (navigationControl && map) {
+        map.removeControl(navigationControl);
+        const newPosition = isSidebarRight ? 'bottom-left' : 'bottom-right';
+        map.addControl(navigationControl, newPosition);
+    }
+    
+    // Store preference in localStorage
+    localStorage.setItem('sidebarPosition', isSidebarRight ? 'right' : 'left');
 }
 
 /**
