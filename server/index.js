@@ -9,52 +9,71 @@ import rateLimit from 'express-rate-limit';
 import AdGuardClient from './adguard-client.js';
 import GeoService from './geo-service.js';
 
+// Load environment variables
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configuration
-const PORT = process.env.PORT || 8080;
-const POLL_INTERVAL = parseInt(process.env.POLL_INTERVAL_MS) || 2000;
-const MAX_CONCURRENT_ARCS = parseInt(process.env.MAX_CONCURRENT_ARCS) || 100;
+// Configuration with validation
+const config = {
+  port: parseInt(process.env.PORT) || 8080,
+  pollInterval: parseInt(process.env.POLL_INTERVAL_MS) || 2000,
+  statsInterval: parseInt(process.env.STATS_INTERVAL_MS) || 5000,
+  maxProcessedIds: parseInt(process.env.MAX_PROCESSED_IDS) || 1000,
+  maxConcurrentArcs: parseInt(process.env.MAX_CONCURRENT_ARCS) || 50,
+  sourceLat: parseFloat(process.env.SOURCE_LAT) || 3.139,
+  sourceLng: parseFloat(process.env.SOURCE_LNG) || 101.6869,
+  nodeEnv: process.env.NODE_ENV || 'development'
+};
+
+// Validate required environment variables
+const requiredEnvVars = ['ADGUARD_URL', 'ADGUARD_USERNAME', 'ADGUARD_PASSWORD'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  console.error('Please create a .env file with the required variables.');
+  process.exit(1);
+}
 
 // Initialize services
 const adguardClient = new AdGuardClient(
-  process.env.ADGUARD_URL || 'http://localhost:3000',
-  process.env.ADGUARD_USERNAME || 'admin',
-  process.env.ADGUARD_PASSWORD || ''
+  process.env.ADGUARD_URL,
+  process.env.ADGUARD_USERNAME,
+  process.env.ADGUARD_PASSWORD
 );
 
-const geoService = new GeoService(
-  process.env.SOURCE_LAT || '3.139',
-  process.env.SOURCE_LNG || '101.6869'
-);
+const geoService = new GeoService(config.sourceLat, config.sourceLng);
 
 // Express app setup
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
 
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-      connectSrc: ["'self'", "ws:", "wss:", "https://demotiles.maplibre.org", "https://unpkg.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      workerSrc: ["'self'", "blob:"]
+      connectSrc: ["'self'", "ws:", "wss:", "https://demotiles.maplibre.org"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      workerSrc: ["'self'", "blob:"],
+      childSrc: ["'self'", "blob:"]
     }
-  }
+  },
+  crossOriginEmbedderPolicy: false
 }));
 
-// Rate limiting
+// Rate limiting - More restrictive for production
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP'
+  max: config.nodeEnv === 'production' ? 100 : 1000,
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 app.use(limiter);
@@ -64,219 +83,234 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    connections: activeConnections.size
+  });
 });
 
-// WebSocket connection handling
+// WebSocket server
+const wss = new WebSocketServer({ server });
+
+// Connection management
 const activeConnections = new Set();
-let pollingInterval = null;
-let statsInterval = null;
-let processedLogIds = new Set();
-const MAX_PROCESSED_IDS = 1000;
+let dnsPollingInterval = null;
+let statsPollingInterval = null;
 
-wss.on('connection', (ws) => {
-  console.log('Client connected');
-  activeConnections.add(ws);
+// Track processed DNS entries to prevent duplicates (with size limit)
+const processedIds = new Set();
+const MAX_PROCESSED_IDS = config.maxProcessedIds;
 
-  ws.on('close', () => {
-    console.log('Client disconnected');
-    activeConnections.delete(ws);
+// Start/Stop polling based on active connections
+function startPolling() {
+  if (dnsPollingInterval || activeConnections.size === 0) return;
 
-    // Stop polling if no clients
-    if (activeConnections.size === 0) {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-      }
-      if (statsInterval) {
-        clearInterval(statsInterval);
-        statsInterval = null;
-      }
-      console.log('Polling stopped - no active clients');
-    }
-  });
+  console.log('▶️  Starting DNS polling...');
 
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
-    activeConnections.delete(ws);
-  });
-
-  // Start polling if this is the first client
-  if (activeConnections.size === 1 && !pollingInterval) {
-    startPolling();
-    startStatsPolling();
-  }
-});
-
-/**
- * Start polling AdGuard Home for DNS logs
- */
-async function startPolling() {
-  console.log('Starting DNS log polling...');
-
-  // Test connection first
-  const connected = await adguardClient.testConnection();
-  if (!connected) {
-    console.error('Failed to connect to AdGuard Home API');
-    broadcastError('Failed to connect to AdGuard Home');
-    return;
-  }
-
-  console.log('Connected to AdGuard Home successfully');
-
-  pollingInterval = setInterval(async () => {
+  // Poll DNS logs
+  dnsPollingInterval = setInterval(async () => {
     try {
-      const logs = await adguardClient.getQueryLog(20);
-
-      // Process each log entry
-      for (const log of logs) {
-        // Create unique ID for deduplication
-        const logId = `${log.timestamp.getTime()}-${log.client}-${log.domain}`;
-
-        if (processedLogIds.has(logId)) {
-          continue;
-        }
-
-        processedLogIds.add(logId);
-
-        // Manage set size
-        if (processedLogIds.size > MAX_PROCESSED_IDS) {
-          const firstId = processedLogIds.values().next().value;
-          processedLogIds.delete(firstId);
-        }
-
-        // Process DNS entry
-        await processDNSEntry(log);
-      }
+      await pollDNSLogs();
     } catch (error) {
-      console.error('Error polling DNS logs:', error.message);
-      broadcastError('Error fetching DNS logs');
+      console.error('Error in DNS polling:', error.message);
+      broadcast({ type: 'error', message: 'Failed to fetch DNS logs' });
     }
-  }, POLL_INTERVAL);
+  }, config.pollInterval);
+
+  // Poll stats
+  statsPollingInterval = setInterval(async () => {
+    try {
+      await pollStats();
+    } catch (error) {
+      console.error('Error in stats polling:', error.message);
+    }
+  }, config.statsInterval);
+
+  // Initial fetch
+  pollDNSLogs().catch(err => console.error('Initial DNS poll failed:', err));
+  pollStats().catch(err => console.error('Initial stats poll failed:', err));
+}
+
+function stopPolling() {
+  if (activeConnections.size > 0) return;
+
+  console.log('⏸️  Stopping DNS polling (no active connections)...');
+
+  if (dnsPollingInterval) {
+    clearInterval(dnsPollingInterval);
+    dnsPollingInterval = null;
+  }
+
+  if (statsPollingInterval) {
+    clearInterval(statsPollingInterval);
+    statsPollingInterval = null;
+  }
 }
 
 /**
- * Start polling AdGuard Home for statistics
+ * Poll DNS logs from AdGuard Home
  */
-async function startStatsPolling() {
-  console.log('Starting stats polling...');
+async function pollDNSLogs() {
+  const logs = await adguardClient.getQueryLog();
 
-  // Send stats every 5 seconds
-  statsInterval = setInterval(async () => {
-    try {
-      const stats = await adguardClient.getStats();
-      
-      // Broadcast stats to all clients
-      broadcast({
-        type: 'stats',
-        timestamp: new Date().toISOString(),
-        data: stats
-      });
-    } catch (error) {
-      console.error('Error polling stats:', error.message);
+  for (const entry of logs) {
+    // Create unique ID for deduplication
+    const entryId = `${entry.timestamp.getTime()}-${entry.domain}-${entry.client}`;
+
+    if (processedIds.has(entryId)) continue;
+
+    // Add to processed set with size limit
+    processedIds.add(entryId);
+    if (processedIds.size > MAX_PROCESSED_IDS) {
+      // Remove oldest entry (first item)
+      const firstId = processedIds.values().next().value;
+      processedIds.delete(firstId);
     }
-  }, 5000); // Poll every 5 seconds
+
+    // Process entry if it has valid answer IPs
+    if (entry.answer && entry.answer.length > 0) {
+      await processDNSEntry(entry);
+    }
+  }
 }
 
 /**
- * Process a DNS log entry and broadcast to clients
- * @param {Object} log - DNS log entry
+ * Poll statistics from AdGuard Home
  */
-async function processDNSEntry(log) {
+async function pollStats() {
+  const stats = await adguardClient.getStats();
+  broadcast({
+    type: 'stats',
+    data: stats
+  });
+}
+
+/**
+ * Process a single DNS entry
+ */
+async function processDNSEntry(entry) {
   const source = geoService.getSource();
 
-  // Process each answer IP
-  if (log.answer && log.answer.length > 0) {
-    for (const ip of log.answer) {
-      const destination = geoService.lookup(ip);
+  // Process each IP address in the answer
+  for (const ip of entry.answer) {
+    const destination = geoService.lookup(ip);
 
-      if (destination) {
-        const event = {
-          type: 'dns_query',
-          timestamp: log.timestamp.toISOString(),
-          source: source,
-          destination: destination,
-          data: {
-            domain: log.domain,
-            queryType: log.type,
-            ip: ip,
-            clientIp: log.client,
-            elapsed: log.elapsed,
-            status: log.status,
-            cached: log.cached,
-            filtered: log.filtered,
-            reason: log.reason
-          }
-        };
+    if (!destination) continue;
 
-        broadcast(event);
-      }
-    }
-  } else {
-    // No answer IPs - still show the query
-    const event = {
+    // Broadcast to all clients
+    broadcast({
       type: 'dns_query',
-      timestamp: log.timestamp.toISOString(),
-      source: source,
-      destination: null,
+      timestamp: entry.timestamp.toISOString(),
+      source,
+      destination,
       data: {
-        domain: log.domain,
-        queryType: log.type,
-        clientIp: log.client,
-        elapsed: log.elapsed,
-        status: log.status,
-        cached: log.cached,
-        filtered: log.filtered,
-        reason: log.reason
+        domain: entry.domain,
+        ip,
+        queryType: entry.type,
+        elapsed: entry.elapsed,
+        cached: entry.cached,
+        filtered: entry.filtered,
+        clientIp: entry.client,
+        status: entry.status
       }
-    };
-
-    broadcast(event);
+    });
   }
 }
 
 /**
  * Broadcast message to all connected clients
- * @param {Object} message - Message to broadcast
  */
 function broadcast(message) {
   const data = JSON.stringify(message);
-
-  activeConnections.forEach((ws) => {
-    if (ws.readyState === ws.OPEN) {
-      ws.send(data);
+  
+  activeConnections.forEach(ws => {
+    if (ws.readyState === 1) { // WebSocket.OPEN
+      try {
+        ws.send(data);
+      } catch (error) {
+        console.error('Error broadcasting to client:', error.message);
+      }
     }
   });
 }
 
 /**
- * Broadcast error message
- * @param {string} error - Error message
+ * WebSocket connection handler
  */
-function broadcastError(error) {
-  broadcast({
-    type: 'error',
-    message: error,
-    timestamp: new Date().toISOString()
+wss.on('connection', (ws, req) => {
+  const clientIp = req.socket.remoteAddress;
+  console.log(`✅ Client connected from ${clientIp} (Total: ${activeConnections.size + 1})`);
+
+  activeConnections.add(ws);
+  startPolling();
+
+  ws.on('close', () => {
+    console.log(`❌ Client disconnected from ${clientIp} (Total: ${activeConnections.size - 1})`);
+    activeConnections.delete(ws);
+    stopPolling();
   });
-}
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-  }
-
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  ws.on('error', (error) => {
+    console.error(`WebSocket error from ${clientIp}:`, error.message);
+    activeConnections.delete(ws);
+    stopPolling();
   });
+
+  // Send welcome message
+  ws.send(JSON.stringify({
+    type: 'connected',
+    message: 'Connected to DNS Visualization Server',
+    config: {
+      pollInterval: config.pollInterval,
+      maxConcurrentArcs: config.maxConcurrentArcs
+    }
+  }));
 });
 
+/**
+ * Graceful shutdown handler
+ */
+function gracefulShutdown(signal) {
+  console.log(`\n${signal} received. Closing gracefully...`);
+
+  // Stop polling
+  stopPolling();
+
+  // Close all WebSocket connections
+  activeConnections.forEach(ws => {
+    ws.close(1000, 'Server shutting down');
+  });
+
+  // Close WebSocket server
+  wss.close(() => {
+    console.log('WebSocket server closed');
+  });
+
+  // Close HTTP server
+  server.close(() => {
+    console.log('HTTP server closed');
+    process.exit(0);
+  });
+
+  // Force exit if graceful shutdown takes too long
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Start server
-server.listen(PORT, () => {
-  console.log(`DNS Visualization Dashboard running on http://localhost:${PORT}`);
-  console.log(`WebSocket server ready for connections`);
+server.listen(config.port, () => {
+  console.log(`\n🚀 DNS Visualization Dashboard`);
+  console.log(`📡 Server running on http://localhost:${config.port}`);
+  console.log(`🔄 Polling interval: ${config.pollInterval}ms`);
+  console.log(`📊 Stats interval: ${config.statsInterval}ms`);
+  console.log(`🌍 Source location: Kuala Lumpur (${config.sourceLat}, ${config.sourceLng})`);
+  console.log(`🔒 Environment: ${config.nodeEnv}`);
+  console.log(`\nWaiting for client connections...\n`);
 });
