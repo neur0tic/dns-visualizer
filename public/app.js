@@ -37,6 +37,7 @@ let responseTimes = [];
 let logEntries = [];
 let responseChart = null;
 let chartData = [];
+let sourcePulseActive = false;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', () => {
@@ -284,6 +285,9 @@ function createArc(source, destination, data) {
     // Get color based on DNS query type
     const arcColor = getColorForDNSType(data.queryType || data.type);
 
+    // Trigger source pulse when traffic originates
+    triggerSourcePulse();
+
     // Create line geometry
     const lineString = createArcGeometry(
         [source.lng, source.lat],
@@ -357,6 +361,9 @@ function animateArc(arcId, lineString, destination, data, arcColor) {
 
             // Add label at destination
             addArcLabel(destination, data);
+
+            // Create glow effect at destination
+            createDestinationGlow(destination, arcColor);
 
             // Create trail when arc completes
             if (!trailCreated) {
@@ -843,6 +850,127 @@ function applyDarkMode() {
             }
         }
     });
+}
+
+/**
+ * Create a glowing pulse effect at destination location
+ */
+function createDestinationGlow(destination, color) {
+    const glowId = `glow-${Date.now()}-${Math.random()}`;
+    
+    // Add glow source at destination point
+    map.addSource(glowId, {
+        type: 'geojson',
+        data: {
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [destination.lng, destination.lat]
+                }
+            }]
+        }
+    });
+
+    // Add two circle layers for glow effect
+    const glowLayer1 = `${glowId}-1`;
+    const glowLayer2 = `${glowId}-2`;
+
+    // Outer glow circle
+    map.addLayer({
+        id: glowLayer1,
+        type: 'circle',
+        source: glowId,
+        paint: {
+            'circle-radius': 30,
+            'circle-color': color,
+            'circle-opacity': 0.6,
+            'circle-blur': 1
+        }
+    });
+
+    // Inner glow circle
+    map.addLayer({
+        id: glowLayer2,
+        type: 'circle',
+        source: glowId,
+        paint: {
+            'circle-radius': 15,
+            'circle-color': color,
+            'circle-opacity': 0.8,
+            'circle-blur': 0.5
+        }
+    });
+
+    // Animate the glow with expanding and fading effect
+    const duration = 1500; // 1.5 seconds
+    const steps = 30;
+    const stepDuration = duration / steps;
+    let currentStep = 0;
+
+    const glowInterval = setInterval(() => {
+        currentStep++;
+        const progress = currentStep / steps;
+        
+        // Expand and fade out
+        const scale = 1 + (progress * 2); // Expands to 3x size
+        const opacity1 = 0.6 * (1 - progress);
+        const opacity2 = 0.8 * (1 - progress);
+
+        if (map.getLayer(glowLayer1)) {
+            map.setPaintProperty(glowLayer1, 'circle-radius', 30 * scale);
+            map.setPaintProperty(glowLayer1, 'circle-opacity', opacity1);
+        }
+
+        if (map.getLayer(glowLayer2)) {
+            map.setPaintProperty(glowLayer2, 'circle-radius', 15 * scale);
+            map.setPaintProperty(glowLayer2, 'circle-opacity', opacity2);
+        }
+
+        if (currentStep >= steps) {
+            clearInterval(glowInterval);
+            // Clean up
+            setTimeout(() => {
+                if (map.getLayer(glowLayer1)) map.removeLayer(glowLayer1);
+                if (map.getLayer(glowLayer2)) map.removeLayer(glowLayer2);
+                if (map.getSource(glowId)) map.removeSource(glowId);
+            }, 100);
+        }
+    }, stepDuration);
+}
+
+/**
+ * Trigger a brief pulse on the source marker
+ */
+function triggerSourcePulse() {
+    // Prevent overlapping pulses - throttle to once every 100ms
+    if (sourcePulseActive) return;
+    
+    sourcePulseActive = true;
+    
+    // Create temporary enhanced pulse
+    if (map.getLayer('pulse-layer')) {
+        const originalRadius = map.getPaintProperty('pulse-layer', 'circle-radius');
+        const originalOpacity = map.getPaintProperty('pulse-layer', 'circle-opacity');
+        
+        // Quick burst animation
+        map.setPaintProperty('pulse-layer', 'circle-radius', 35);
+        map.setPaintProperty('pulse-layer', 'circle-opacity', 1);
+        
+        // Fade back to normal
+        setTimeout(() => {
+            if (map.getLayer('pulse-layer')) {
+                map.setPaintProperty('pulse-layer', 'circle-radius', originalRadius);
+                map.setPaintProperty('pulse-layer', 'circle-opacity', originalOpacity);
+            }
+        }, 100);
+    }
+    
+    // Reset throttle
+    setTimeout(() => {
+        sourcePulseActive = false;
+    }, 100);
 }
 
 // Update stats periodically
