@@ -7,6 +7,8 @@ const MAX_CONCURRENT_ARCS = 100;
 const MAX_LOG_ENTRIES = 15;
 const ARC_ANIMATION_DURATION = 200; // ms
 const LABEL_LIFETIME = 5000; // ms
+const ARC_TRAIL_COUNT = 3; // Number of trail copies per arc
+const ARC_TRAIL_LIFETIME = 2000; // ms - how long trails persist
 
 // DNS Query Type Colors
 const DNS_TYPE_COLORS = {
@@ -90,6 +92,48 @@ function initMap() {
     map.on('load', () => {
         applyDarkMode();
         document.getElementById('loading').style.display = 'none';
+
+        // Add pulsing circle source data for Kuala Lumpur
+        map.addSource('pulse-source', {
+            type: 'geojson',
+            data: {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [101.6869, 3.139]
+                    }
+                }]
+            }
+        });
+
+        // Add pulsing circle layer
+        map.addLayer({
+            id: 'pulse-layer',
+            type: 'circle',
+            source: 'pulse-source',
+            paint: {
+                'circle-radius': 20,
+                'circle-color': '#f6ad55',
+                'circle-opacity': 0.8,
+                'circle-blur': 0.5
+            }
+        });
+
+        // Animate the pulse
+        let pulsePhase = 0;
+        function animatePulse() {
+            pulsePhase += 0.02;
+            const scale = 1 + Math.sin(pulsePhase) * 0.5;
+            const opacity = 0.8 - Math.abs(Math.sin(pulsePhase)) * 0.6;
+            
+            map.setPaintProperty('pulse-layer', 'circle-radius', 20 * scale);
+            map.setPaintProperty('pulse-layer', 'circle-opacity', opacity);
+            
+            requestAnimationFrame(animatePulse);
+        }
+        animatePulse();
 
         // Add source marker for Kuala Lumpur
         new maplibregl.Marker({ color: '#f6ad55' })
@@ -268,7 +312,7 @@ function createArc(source, destination, data) {
     });
 
     // Animate the arc
-    animateArc(arcId, lineString, destination, data);
+    animateArc(arcId, lineString, destination, data, arcColor);
 }
 
 /**
@@ -300,9 +344,10 @@ function createArcGeometry(start, end) {
 /**
  * Animate arc drawing and add label
  */
-function animateArc(arcId, lineString, destination, data) {
+function animateArc(arcId, lineString, destination, data, arcColor) {
     const steps = lineString.coordinates.length;
     let currentStep = 0;
+    let trailCreated = false;
 
     const interval = setInterval(() => {
         currentStep++;
@@ -312,6 +357,12 @@ function animateArc(arcId, lineString, destination, data) {
 
             // Add label at destination
             addArcLabel(destination, data);
+
+            // Create trail when arc completes
+            if (!trailCreated) {
+                createArcTrail(lineString, arcColor);
+                trailCreated = true;
+            }
 
             // Remove arc after animation
             setTimeout(() => {
@@ -332,6 +383,69 @@ function animateArc(arcId, lineString, destination, data) {
             }
         });
     }, ARC_ANIMATION_DURATION / steps);
+}
+
+/**
+ * Create fading trail copies of the arc
+ */
+function createArcTrail(lineString, arcColor) {
+    for (let i = 0; i < ARC_TRAIL_COUNT; i++) {
+        setTimeout(() => {
+            const trailId = `trail-${Date.now()}-${Math.random()}`;
+            const opacity = 0.6 - (i * 0.2); // Decreasing opacity for each trail
+            
+            // Add trail source
+            map.addSource(trailId, {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: lineString
+                }
+            });
+
+            // Add trail layer with reduced opacity
+            map.addLayer({
+                id: trailId,
+                type: 'line',
+                source: trailId,
+                paint: {
+                    'line-color': arcColor,
+                    'line-width': 1.5,
+                    'line-opacity': opacity
+                }
+            });
+
+            // Animate trail fade out
+            animateTrailFade(trailId, opacity);
+
+            // Remove trail after lifetime
+            setTimeout(() => {
+                removeArc(trailId);
+            }, ARC_TRAIL_LIFETIME);
+        }, i * 150); // Stagger trail creation
+    }
+}
+
+/**
+ * Animate trail fading out
+ */
+function animateTrailFade(trailId, initialOpacity) {
+    const fadeSteps = 20;
+    const fadeInterval = ARC_TRAIL_LIFETIME / fadeSteps;
+    let currentFade = 0;
+
+    const fade = setInterval(() => {
+        currentFade++;
+        const opacity = initialOpacity * (1 - currentFade / fadeSteps);
+
+        if (map.getLayer(trailId)) {
+            map.setPaintProperty(trailId, 'line-opacity', opacity);
+        }
+
+        if (currentFade >= fadeSteps) {
+            clearInterval(fade);
+        }
+    }, fadeInterval);
 }
 
 /**

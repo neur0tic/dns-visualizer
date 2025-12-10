@@ -28,7 +28,7 @@ body {
     background: rgba(10, 14, 39, 0.20);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(246, 173, 85, 0.12);
+    border-right: 1px solid rgba(248, 248, 248, 0.12);
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -83,7 +83,7 @@ body.sidebar-right .sidebar {
 .sidebar-header h1 {
     font-size: 22px;
     font-weight: 700;
-    color: #f6ad55;
+    color: #ffffff;
     margin: 0 0 14px 0;
     letter-spacing: -0.6px;
     text-shadow: 0 0 15px rgba(246, 173, 85, 0.3);
@@ -315,7 +315,7 @@ body.sidebar-right .sidebar {
     background: rgba(13, 17, 35, 0.95);
     padding: 10px 14px;
     border-radius: 6px;
-    border: 1px solid rgba(246, 173, 85, 0.3);
+    border: 1px solid rgba(0, 221, 255, 0.3);
     font-size: 12px;
     color: #cbd5e0;
     pointer-events: none;
@@ -360,7 +360,7 @@ body.sidebar-right .sidebar {
     background: rgba(13, 17, 35, 0.92);
     padding: 16px 20px;
     border-radius: 8px;
-    border: 1px solid rgba(246, 173, 85, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 101;
     backdrop-filter: blur(10px);
@@ -412,7 +412,7 @@ body.sidebar-right .sidebar {
     background: rgba(13, 17, 35, 0.92);
     padding: 12px;
     border-radius: 8px;
-    border: 1px solid rgba(246, 173, 85, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 101;
     cursor: pointer;
@@ -427,7 +427,7 @@ body.sidebar-right .theme-toggle {
 
 .theme-toggle:hover {
     background: rgba(13, 17, 35, 1);
-    border-color: rgba(246, 173, 85, 0.4);
+    border-color: rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
 }
 
@@ -448,7 +448,7 @@ body.sidebar-right .theme-toggle {
     background: rgba(13, 17, 35, 0.92);
     padding: 12px;
     border-radius: 8px;
-    border: 1px solid rgba(246, 173, 85, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     z-index: 101;
     cursor: pointer;
@@ -464,7 +464,7 @@ body.sidebar-right .sidebar-toggle {
 
 .sidebar-toggle:hover {
     background: rgba(13, 17, 35, 1);
-    border-color: rgba(246, 173, 85, 0.4);
+    border-color: rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
 }
 
@@ -492,7 +492,7 @@ body.sidebar-right .sidebar-toggle button {
     background: rgba(13, 17, 35, 0.92);
     padding: 8px 6px;
     border-radius: 0 6px 6px 0;
-    border: 1px solid rgba(246, 173, 85, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-left: none;
     box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
     z-index: 101;
@@ -505,7 +505,7 @@ body.sidebar-right .sidebar-hide-toggle {
     left: auto;
     right: 380px;
     border-radius: 6px 0 0 6px;
-    border-left: 1px solid rgba(246, 173, 85, 0.2);
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
     border-right: none;
     box-shadow: -2px 0 12px rgba(0, 0, 0, 0.3);
 }
@@ -522,7 +522,7 @@ body.sidebar-right.sidebar-hidden .sidebar-hide-toggle {
 
 .sidebar-hide-toggle:hover {
     background: rgba(13, 17, 35, 1);
-    border-color: rgba(246, 173, 85, 0.4);
+    border-color: rgba(255, 255, 255, 0.4);
     padding-left: 10px;
 }
 
@@ -757,4 +757,20 @@ body.light-mode .footer-email {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Pulse Animation for Source Marker */
+@keyframes sourcePulse {
+    0% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(1.5);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(2);
+    }
 }
