@@ -10,22 +10,22 @@
 const CONFIG = {
   MAX_CONCURRENT_ARCS: 100,
   MAX_LOG_ENTRIES: 15,
-  MAX_CONCURRENT_LABELS: 12, // Maximum labels shown at once (NEW)
+  MAX_CONCURRENT_LABELS: 12,
   ARC_ANIMATION_DURATION: 200,
   LABEL_LIFETIME: 5000,
-  LABEL_LIFETIME_MIN: 3000, // Minimum lifetime when crowded (NEW)
-  LABEL_PADDING: 15, // Minimum space between labels (increased)
-  LABEL_MAX_OFFSET: 150, // Maximum offset to try (increased)
-  LABEL_SEARCH_RADIUS: 200, // Search radius for label positioning
-  LABEL_ANGLE_STEPS: 16, // Number of angles to try in circular pattern
-  LABEL_QUEUE_ENABLED: true, // Enable label queuing system (NEW)
-  LABEL_PRIORITY_BLOCKED: true, // Prioritize blocked queries (NEW)
+  LABEL_LIFETIME_MIN: 3000,
+  LABEL_PADDING: 15,
+  LABEL_MAX_OFFSET: 150,
+  LABEL_SEARCH_RADIUS: 200,
+  LABEL_ANGLE_STEPS: 16,
+  LABEL_QUEUE_ENABLED: true,
+  LABEL_PRIORITY_BLOCKED: true,
   ARC_TRAIL_COUNT: 3,
   ARC_TRAIL_LIFETIME: 2000,
   CHART_DATA_POINTS: 50,
-  CHART_UPDATE_DEBOUNCE: 16, // ~60fps
-  CHART_ANIMATION_DURATION: 300, // Smooth transition duration in ms
-  CHART_TENSION: 0.4, // Curve tension (0 = straight lines, 1 = very curvy)
+  CHART_UPDATE_DEBOUNCE: 16,
+  CHART_ANIMATION_DURATION: 300,
+  CHART_TENSION: 0.4,
   RECONNECT_BASE_DELAY: 1000,
   RECONNECT_MAX_DELAY: 30000,
   RECONNECT_MAX_ATTEMPTS: 10,
@@ -58,23 +58,22 @@ const state = {
   isSidebarRight: false,
   navigationControl: null,
   activeArcs: [],
-  activeLabelBounds: [], // Track active label positions for collision detection
-  activeLabels: 0, // Count of currently visible labels (NEW)
-  labelQueue: [], // Queue for labels waiting to be displayed (NEW)
+  activeLabelBounds: [],
+  activeLabels: 0,
+  labelQueue: [],
   totalQueries: 0,
   blockedQueries: 0,
   responseTimes: [],
-  upstreamTimes: [], // Track upstream DNS server response times
+  upstreamTimes: [],
   logEntries: [],
   responseChart: null,
   chartData: [],
-  chartDataPrevious: [], // Previous values for smooth interpolation
+  chartDataPrevious: [],
   chartAnimationStartTime: null,
   chartAnimationFrameId: null,
   sourcePulseActive: false,
   reconnectAttempts: 0,
   reconnectTimeoutId: null,
-  chartUpdateTimeoutId: null,
   statsUpdateIntervalId: null
 };
 
@@ -146,7 +145,7 @@ function initMap() {
   state.map = new maplibregl.Map({
     container: 'map',
     style: 'https://demotiles.maplibre.org/style.json',
-    center: [101.6869, 3.139],
+    center: [0, 20],
     zoom: 2,
     pitch: 0,
     bearing: 0
@@ -364,10 +363,6 @@ function handleDNSQuery(event) {
 
   if (event.data.filtered) {
     state.blockedQueries++;
-    // Debug: Log every 10th blocked query
-    if (state.blockedQueries % 10 === 0) {
-      console.log(`🚫 Client: Blocked query #${state.blockedQueries} - ${event.data.domain}`);
-    }
   }
 
   updateStats();
@@ -1095,7 +1090,7 @@ function createLabelConnector(x1, y1, x2, y2) {
   line.setAttribute('y1', y1);
   line.setAttribute('x2', x2);
   line.setAttribute('y2', y2);
-  line.setAttribute('stroke', state.isDarkMode ? 'rgba(246, 173, 85, 0.3)' : 'rgba(66, 100, 251, 0.3)');
+  line.setAttribute('stroke', state.isDarkMode ? 'rgba(246, 173, 85, 0.3)' : 'rgba(99, 102, 241, 0.3)');
   line.setAttribute('stroke-width', '1');
   line.setAttribute('stroke-dasharray', '3,3');
   
@@ -1170,13 +1165,23 @@ function updateStatus(status, text) {
   try {
     const indicator = document.getElementById('status-indicator');
     const statusText = document.getElementById('status-text');
+    const indicatorTop = document.getElementById('status-indicator-top');
+    const statusTextTop = document.getElementById('status-text-top');
 
     if (indicator) {
       indicator.className = `status-indicator ${status === 'disconnected' ? 'disconnected' : ''}`;
     }
     
+    if (indicatorTop) {
+      indicatorTop.className = `status-indicator ${status === 'disconnected' ? 'disconnected' : ''}`;
+    }
+    
     if (statusText) {
       statusText.textContent = sanitizeString(text);
+    }
+    
+    if (statusTextTop) {
+      statusTextTop.textContent = sanitizeString(text);
     }
   } catch (error) {
     console.error('Error updating status:', error);
@@ -1311,9 +1316,9 @@ function drawResponseChart(interpolation = 1) {
 
     state.responseChart.clearRect(0, 0, width, height);
 
-    const lineColor = state.isDarkMode ? '#f6ad55' : '#4264fb';
-    const gridColor = state.isDarkMode ? 'rgba(246, 173, 85, 0.1)' : 'rgba(0, 0, 0, 0.05)';
-    const textColor = state.isDarkMode ? '#cbd5e0' : '#666';
+    const lineColor = state.isDarkMode ? '#f6ad55' : '#6366f1';
+    const gridColor = state.isDarkMode ? 'rgba(246, 173, 85, 0.1)' : 'rgba(99, 102, 241, 0.1)';
+    const textColor = state.isDarkMode ? '#cbd5e0' : '#64748b';
 
     // Draw grid
     state.responseChart.strokeStyle = gridColor;
@@ -1342,8 +1347,8 @@ function drawResponseChart(interpolation = 1) {
       state.responseChart.lineJoin = 'round';
 
       const gradient = state.responseChart.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, state.isDarkMode ? 'rgba(246, 173, 85, 0.2)' : 'rgba(66, 100, 251, 0.2)');
-      gradient.addColorStop(1, state.isDarkMode ? 'rgba(246, 173, 85, 0)' : 'rgba(66, 100, 251, 0)');
+      gradient.addColorStop(0, state.isDarkMode ? 'rgba(246, 173, 85, 0.2)' : 'rgba(99, 102, 241, 0.15)');
+      gradient.addColorStop(1, state.isDarkMode ? 'rgba(246, 173, 85, 0)' : 'rgba(99, 102, 241, 0)');
 
       const points = interpolatedData.map((value, index) => ({
         x: (width / Math.max(interpolatedData.length - 1, 1)) * index,
@@ -1581,17 +1586,10 @@ function showError(message) {
 }
 
 function handleVisibilityChange() {
-  if (document.hidden) {
-    // Page is hidden, could reduce update frequency
-    console.log('Page hidden');
-  } else {
-    // Page is visible, resume normal operation
-    console.log('Page visible');
-  }
+  // Page visibility changed - could be used to reduce update frequency when hidden
 }
 
 function cleanup() {
-  // Clean up resources before page unload
   if (state.ws) {
     state.ws.close(1000, 'Page unload');
   }
@@ -1600,12 +1598,12 @@ function cleanup() {
     clearTimeout(state.reconnectTimeoutId);
   }
   
-  if (state.chartUpdateTimeoutId) {
-    clearTimeout(state.chartUpdateTimeoutId);
-  }
-  
   if (state.statsUpdateIntervalId) {
     clearInterval(state.statsUpdateIntervalId);
+  }
+  
+  if (state.chartAnimationFrameId) {
+    cancelAnimationFrame(state.chartAnimationFrameId);
   }
 }
 
