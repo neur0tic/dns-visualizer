@@ -55,10 +55,10 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
-      connectSrc: ["'self'", "ws:", "wss:", "https://demotiles.maplibre.org"],
+      connectSrc: ["'self'", "ws:", "wss:", "https://unpkg.com", "https://demotiles.maplibre.org"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       workerSrc: ["'self'", "blob:"],
       childSrc: ["'self'", "blob:"]
