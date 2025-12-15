@@ -592,6 +592,12 @@ body.sidebar-right .theme-toggle {
     padding: 0;
     opacity: 0.8;
     transition: all 0.2s ease;
+    color: #e2e8f0;
+}
+
+.theme-toggle button svg {
+    color: #e2e8f0;
+    stroke: currentColor;
 }
 
 .theme-toggle button:hover {
@@ -644,6 +650,11 @@ body.sidebar-right .sidebar-toggle {
     transition: all 0.2s ease;
     color: #e2e8f0;
     filter: drop-shadow(0 0 2px rgba(148, 163, 184, 0.3));
+}
+
+.sidebar-toggle button svg {
+    color: #e2e8f0;
+    stroke: currentColor;
 }
 
 .sidebar-toggle button:hover {
@@ -805,6 +816,12 @@ body.sidebar-right .source-location-toggle {
     padding: 0;
     opacity: 0.8;
     transition: all 0.2s ease;
+    color: #e2e8f0;
+}
+
+.source-location-toggle button svg {
+    color: #e2e8f0;
+    stroke: currentColor;
 }
 
 .source-location-toggle button:hover {
@@ -821,6 +838,72 @@ body.sidebar-hidden.sidebar-right .source-location-toggle {
     left: 16px;
     right: auto;
     top: 154px;
+}
+
+/* Layout Preset Toggle - Floating Corner Button */
+.layout-toggle {
+    position: fixed;
+    top: 160px;
+    right: 16px;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(148, 163, 184, 0.05);
+    z-index: 101;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Move to top-left when sidebar is on right */
+body.sidebar-right .layout-toggle {
+    right: auto;
+    left: 16px;
+}
+
+.layout-toggle:hover {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(148, 163, 184, 0.25);
+    transform: translateY(-2px);
+    box-shadow:
+        0 6px 24px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(148, 163, 184, 0.1);
+}
+
+.layout-toggle button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+    color: #e2e8f0;
+}
+
+.layout-toggle button svg {
+    color: #e2e8f0;
+    stroke: currentColor;
+}
+
+.layout-toggle button:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Position adjustments when sidebar is hidden */
+body.sidebar-hidden .layout-toggle {
+    top: 202px;
+}
+
+body.sidebar-hidden.sidebar-right .layout-toggle {
+    left: 16px;
+    right: auto;
+    top: 202px;
 }
 
 /* Light Mode */
@@ -978,11 +1061,22 @@ body.light-mode .sidebar-toggle:hover {
 
 body.light-mode .theme-toggle button {
     filter: none;
+    color: #475569;
+}
+
+body.light-mode .theme-toggle button svg {
+    color: #475569;
+    stroke: currentColor;
 }
 
 body.light-mode .sidebar-toggle button {
     color: #475569;
     filter: none;
+}
+
+body.light-mode .sidebar-toggle button svg {
+    color: #475569;
+    stroke: currentColor;
 }
 
 body.light-mode .sidebar-hide-toggle {
@@ -2149,6 +2243,236 @@ body.light-mode .modal-info p {
 
 body.light-mode .modal-info strong {
     color: #0f172a;
+}
+
+/* ============================================================================
+   LAYOUT PRESETS
+   ============================================================================ */
+
+/* COMPACT LAYOUT - Streamlined for space efficiency */
+.sidebar.layout-compact {
+    width: 240px;
+}
+
+.sidebar.layout-compact .sidebar-header h1 {
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.sidebar.layout-compact .status {
+    font-size: 12px;
+}
+
+.sidebar.layout-compact .sidebar-section {
+    padding: 8px 10px;
+}
+
+.sidebar.layout-compact .stats-title,
+.sidebar.layout-compact .log-stream-title {
+    font-size: 8px;
+    margin-bottom: 4px;
+}
+
+.sidebar.layout-compact .stat-item {
+    padding: 5px 8px;
+    margin-bottom: 3px;
+    font-size: 10px;
+}
+
+.sidebar.layout-compact .stat-value {
+    font-size: 11px;
+}
+
+.sidebar.layout-compact .response-graph {
+    margin-top: 6px;
+    padding: 6px;
+}
+
+.sidebar.layout-compact #response-chart {
+    height: 30px;
+}
+
+.sidebar.layout-compact .log-entry {
+    padding: 5px 7px;
+    margin-bottom: 3px;
+    font-size: 9px;
+}
+
+.sidebar.layout-compact .log-entry .log-time {
+    font-size: 8px;
+}
+
+.sidebar.layout-compact .log-entry .log-client {
+    font-size: 8px;
+}
+
+.sidebar.layout-compact .log-entry .log-domain {
+    font-size: 9px;
+}
+
+.sidebar.layout-compact .log-entry .log-details {
+    font-size: 8px;
+}
+
+.sidebar.layout-compact .sidebar-footer {
+    padding: 6px 10px;
+    font-size: 8px;
+}
+
+.sidebar.layout-compact .footer-link {
+    font-size: 10px;
+}
+
+/* Adjust sidebar hide toggle position for compact layout */
+body.layout-compact .sidebar-hide-toggle {
+    left: 240px;
+}
+
+body.sidebar-right.layout-compact .sidebar-hide-toggle {
+    right: 240px;
+    left: auto;
+}
+
+/* MINIMAL LAYOUT - Essential information only */
+.sidebar.layout-minimal {
+    width: 200px;
+}
+
+/* Hide title text, keep only status */
+.sidebar.layout-minimal .sidebar-header h1 {
+    display: none;
+}
+
+.sidebar.layout-minimal .sidebar-header {
+    padding: 8px 10px;
+}
+
+.sidebar.layout-minimal .status {
+    font-size: 11px;
+}
+
+.sidebar.layout-minimal .sidebar-section {
+    padding: 6px 8px;
+}
+
+.sidebar.layout-minimal .stats-title {
+    font-size: 7px;
+    margin-bottom: 3px;
+}
+
+/* Show only key stats */
+.sidebar.layout-minimal .stat-item:nth-child(n+5) {
+    display: none;
+}
+
+.sidebar.layout-minimal .stat-item {
+    padding: 4px 6px;
+    margin-bottom: 2px;
+    font-size: 9px;
+}
+
+.sidebar.layout-minimal .stat-item span:first-child {
+    font-size: 8px;
+}
+
+.sidebar.layout-minimal .stat-value {
+    font-size: 10px;
+}
+
+/* Hide response graph */
+.sidebar.layout-minimal .response-graph {
+    display: none;
+}
+
+/* Minimal log entries */
+.sidebar.layout-minimal .log-stream-title {
+    font-size: 7px;
+    margin-bottom: 3px;
+}
+
+.sidebar.layout-minimal .log-entry {
+    padding: 4px 6px;
+    margin-bottom: 2px;
+    font-size: 8px;
+}
+
+.sidebar.layout-minimal .log-entry .log-time,
+.sidebar.layout-minimal .log-entry .log-client,
+.sidebar.layout-minimal .log-entry .log-details {
+    display: none;
+}
+
+.sidebar.layout-minimal .log-entry .log-domain {
+    font-size: 8px;
+    margin-bottom: 0;
+}
+
+/* Hide footer */
+.sidebar.layout-minimal .sidebar-footer {
+    display: none;
+}
+
+/* Adjust sidebar hide toggle position for minimal layout */
+body.layout-minimal .sidebar-hide-toggle {
+    left: 200px;
+}
+
+body.sidebar-right.layout-minimal .sidebar-hide-toggle {
+    right: 200px;
+    left: auto;
+}
+
+/* Light mode adjustments for layout toggle */
+body.light-mode .layout-toggle {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(148, 163, 184, 0.2);
+    box-shadow:
+        0 4px 16px rgba(100, 116, 139, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body.light-mode .layout-toggle:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(148, 163, 184, 0.3);
+    box-shadow:
+        0 6px 24px rgba(100, 116, 139, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body.light-mode .layout-toggle button {
+    color: #475569;
+    filter: none;
+}
+
+body.light-mode .layout-toggle button svg {
+    color: #475569;
+    stroke: currentColor;
+}
+
+body.light-mode .source-location-toggle {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(148, 163, 184, 0.2);
+    box-shadow:
+        0 4px 16px rgba(100, 116, 139, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body.light-mode .source-location-toggle:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(148, 163, 184, 0.3);
+    box-shadow:
+        0 6px 24px rgba(100, 116, 139, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+body.light-mode .source-location-toggle button {
+    color: #475569;
+    filter: none;
+}
+
+body.light-mode .source-location-toggle button svg {
+    color: #475569;
+    stroke: currentColor;
 }
 
 body.light-mode .modal-footer {

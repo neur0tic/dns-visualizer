@@ -99,13 +99,34 @@
     </div>
 
     <!-- Theme Toggle -->
-    <div class="theme-toggle" id="theme-toggle">
-        <button id="theme-icon">☀️</button>
+    <div class="theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode">
+        <button id="theme-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+            </svg>
+        </button>
     </div>
 
     <!-- Sidebar Position Toggle -->
-    <div class="sidebar-toggle" id="sidebar-toggle" title="Move sidebar to other side">
-        <button id="sidebar-icon">⇄</button>
+    <div class="sidebar-toggle" id="sidebar-toggle" title="Move Sidebar to Other Side">
+        <button id="sidebar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <polyline points="7 23 3 19 7 15" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+        </button>
     </div>
 
     <!-- Sidebar Hide Toggle -->
@@ -115,7 +136,25 @@
 
     <!-- Source Location Toggle -->
     <div class="source-location-toggle" id="source-location-toggle" title="Change DNS Source Location">
-        <button id="source-location-toggle-icon">📍</button>
+        <button id="source-location-toggle-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Layout Preset Toggle -->
+    <div class="layout-toggle" id="layout-toggle" title="Change Sidebar Layout">
+        <button id="layout-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+        </button>
     </div>
 
     <!-- DNS Type Legend -->
