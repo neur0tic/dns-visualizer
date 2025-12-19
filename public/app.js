@@ -1,7 +1,4 @@
-/**
- * DNS Visualization Dashboard - Client Application
- * Production-ready version with error handling, performance optimizations, and security
- */
+// DNS Visualization Dashboard - Client Application
 
 // ============================================================================
 // CONFIGURATION & CONSTANTS
@@ -33,7 +30,6 @@ const CONFIG = {
   DESTINATION_GLOW_DURATION: 1500
 };
 
-// DNS Query Type Colors
 const DNS_TYPE_COLORS = Object.freeze({
   'A': '#f6ad55',
   'AAAA': '#4299e1',
@@ -91,16 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initApp() {
-  // Load saved preferences
   loadPreferences();
-  
-  // Initialize components
   initMap();
   connectWebSocket();
   initResponseChart();
   setupEventListeners();
-  
-  // Start periodic stats update
   state.statsUpdateIntervalId = setInterval(updateStats, 1000);
 }
 
@@ -112,11 +103,6 @@ function setupEventListeners() {
   if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
   if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebarPosition);
   if (sidebarHideToggle) sidebarHideToggle.addEventListener('click', toggleSidebarVisibility);
-  
-  // Handle page visibility changes
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  
-  // Handle window unload
   window.addEventListener('beforeunload', cleanup);
 }
 
@@ -328,11 +314,7 @@ function handleMessage(data) {
       break;
     case 'error':
       console.error('Server error:', data.message);
-      addLogEntry({
-        domain: 'System Error',
-        details: data.message,
-        isError: true
-      });
+      addLogEntry({ domain: 'System Error', details: data.message, isError: true });
       break;
     default:
       console.warn('Unknown message type:', data.type);
@@ -353,21 +335,15 @@ function handleStats(event) {
 }
 
 function handleDNSQuery(event) {
-  // Validate event data - allow null destination for blocked queries
   if (!event.data || !event.source) {
     console.warn('Invalid DNS query event:', event);
     return;
   }
-  
+
   state.totalQueries++;
-
-  if (event.data.filtered) {
-    state.blockedQueries++;
-  }
-
+  if (event.data.filtered) state.blockedQueries++;
   updateStats();
 
-  // Add to log
   addLogEntry({
     domain: sanitizeString(event.data.domain),
     ip: sanitizeString(event.data.ip) || 'No answer',
@@ -379,33 +355,21 @@ function handleDNSQuery(event) {
     timestamp: new Date(event.timestamp)
   });
 
-  // Create arc only if we have a destination (resolved queries)
   if (event.destination && state.activeArcs.length < CONFIG.MAX_CONCURRENT_ARCS) {
     createArc(event.source, event.destination, event.data);
   }
 
-  // Track response times
   const elapsed = parseFloat(event.data.elapsed);
   if (!isNaN(elapsed) && elapsed > 0) {
     state.responseTimes.push(elapsed);
-    
-    // Keep array bounded
-    if (state.responseTimes.length > 100) {
-      state.responseTimes.shift();
-    }
-    
+    if (state.responseTimes.length > 100) state.responseTimes.shift();
     updateResponseChartDebounced(elapsed);
   }
-  
-  // Track upstream response times
+
   const upstreamElapsed = parseFloat(event.data.upstream);
   if (!isNaN(upstreamElapsed) && upstreamElapsed > 0) {
     state.upstreamTimes.push(upstreamElapsed);
-    
-    // Keep array bounded
-    if (state.upstreamTimes.length > 100) {
-      state.upstreamTimes.shift();
-    }
+    if (state.upstreamTimes.length > 100) state.upstreamTimes.shift();
   }
 }
 
@@ -725,7 +689,6 @@ function triggerSourcePulse() {
 // ============================================================================
 
 function addArcLabel(destination, data) {
-  // Check if we should queue this label
   if (CONFIG.LABEL_QUEUE_ENABLED && state.activeLabels >= CONFIG.MAX_CONCURRENT_LABELS) {
     queueLabel(destination, data);
     return;
@@ -736,12 +699,9 @@ function addArcLabel(destination, data) {
 
     const label = document.createElement('div');
     label.className = 'arc-label';
-    label.style.opacity = '0'; // Hide initially to measure
-    
-    // Add priority class for blocked queries
-    if (data.filtered) {
-      label.classList.add('arc-label-priority');
-    }
+    label.style.opacity = '0';
+
+    if (data.filtered) label.classList.add('arc-label-priority');
     
     const domain = sanitizeHTML(data.domain || 'Unknown');
     const ip = data.ip ? sanitizeHTML(data.ip) : '';
@@ -762,37 +722,26 @@ function addArcLabel(destination, data) {
 
     document.body.appendChild(label);
 
-    // Get actual dimensions after rendering
     const rect = label.getBoundingClientRect();
     const labelWidth = rect.width;
     const labelHeight = rect.height;
 
-    // Find non-overlapping position
-    const position = findNonOverlappingPosition(
-      point.x,
-      point.y,
-      labelWidth,
-      labelHeight
-    );
+    const position = findNonOverlappingPosition(point.x, point.y, labelWidth, labelHeight);
 
-    // If no valid position found and we're at capacity, queue it
     if (!position && CONFIG.LABEL_QUEUE_ENABLED) {
       label.remove();
       queueLabel(destination, data);
       return;
     }
 
-    // Apply final position
     label.style.left = `${position.x}px`;
     label.style.top = `${position.y}px`;
-    label.style.opacity = '1'; // Show label
+    label.style.opacity = '1';
 
-    // Increment active label count
     state.activeLabels++;
 
-    // Add connector line if label is far from origin point
     const distance = Math.sqrt(
-      Math.pow(position.x - point.x, 2) + 
+      Math.pow(position.x - point.x, 2) +
       Math.pow(position.y - point.y, 2)
     );
     
@@ -806,7 +755,6 @@ function addArcLabel(destination, data) {
       );
     }
 
-    // Track this label's bounds
     const bounds = {
       left: position.x,
       top: position.y,
@@ -816,64 +764,40 @@ function addArcLabel(destination, data) {
     };
     state.activeLabelBounds.push(bounds);
 
-    // Calculate adaptive lifetime based on congestion
     const lifetime = calculateAdaptiveLifetime();
 
-    // Clean up after lifetime
     setTimeout(() => {
-      if (label.parentNode) {
-        label.remove();
-      }
-      if (connector && connector.parentNode) {
-        connector.remove();
-      }
-      // Remove from tracking
+      if (label.parentNode) label.remove();
+      if (connector && connector.parentNode) connector.remove();
+
       const index = state.activeLabelBounds.indexOf(bounds);
-      if (index > -1) {
-        state.activeLabelBounds.splice(index, 1);
-      }
-      
-      // Decrement active label count
+      if (index > -1) state.activeLabelBounds.splice(index, 1);
+
       state.activeLabels--;
-      
-      // Process queue if enabled
-      if (CONFIG.LABEL_QUEUE_ENABLED) {
-        processLabelQueue();
-      }
+
+      if (CONFIG.LABEL_QUEUE_ENABLED) processLabelQueue();
     }, lifetime);
 
-    // Periodic cleanup of expired bounds (in case of errors)
     cleanupExpiredLabelBounds();
   } catch (error) {
     console.error('Error adding label:', error);
   }
 }
 
-/**
- * Find a position that doesn't overlap with existing labels
- * Uses a comprehensive radial search pattern with multiple distance rings
- * @param {number} x - Desired x position
- * @param {number} y - Desired y position  
- * @param {number} width - Label width
- * @param {number} height - Label height
- * @returns {{x: number, y: number}} - Non-overlapping position
- */
 function findNonOverlappingPosition(x, y, width, height) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const padding = CONFIG.LABEL_PADDING;
-  
-  // Priority positions to try first (close to point)
+
   const priorityOffsets = [
-    { dx: 0, dy: -30 },         // Directly above
-    { dx: 0, dy: 30 },          // Directly below
-    { dx: -25, dy: -25 },       // Top-left
-    { dx: 25, dy: -25 },        // Top-right
-    { dx: -30, dy: 0 },         // Left
-    { dx: 30, dy: 0 },          // Right
+    { dx: 0, dy: -30 },
+    { dx: 0, dy: 30 },
+    { dx: -25, dy: -25 },
+    { dx: 25, dy: -25 },
+    { dx: -30, dy: 0 },
+    { dx: 30, dy: 0 },
   ];
 
-  // Try priority positions first
   for (const offset of priorityOffsets) {
     const testX = x + offset.dx;
     const testY = y + offset.dy;
@@ -890,15 +814,13 @@ function findNonOverlappingPosition(x, y, width, height) {
     }
   }
 
-  // Use radial search pattern with increasing distance rings
   const angleSteps = CONFIG.LABEL_ANGLE_STEPS;
   const maxRadius = CONFIG.LABEL_SEARCH_RADIUS;
-  const radiusSteps = 6; // Number of distance rings to try
-  
+  const radiusSteps = 6;
+
   for (let r = 1; r <= radiusSteps; r++) {
     const radius = (maxRadius / radiusSteps) * r;
-    
-    // Try positions around a circle at this radius
+
     for (let a = 0; a < angleSteps; a++) {
       const angle = (Math.PI * 2 * a) / angleSteps;
       const testX = x + Math.cos(angle) * radius;
@@ -917,10 +839,9 @@ function findNonOverlappingPosition(x, y, width, height) {
     }
   }
 
-  // If still no position found, try a grid search in the vicinity
   const gridStep = 40;
   const gridRange = 3;
-  
+
   for (let gx = -gridRange; gx <= gridRange; gx++) {
     for (let gy = -gridRange; gy <= gridRange; gy++) {
       if (gx === 0 && gy === 0) continue;
@@ -941,24 +862,15 @@ function findNonOverlappingPosition(x, y, width, height) {
     }
   }
 
-  // Last resort: find least crowded area (only if queue is disabled)
   if (!CONFIG.LABEL_QUEUE_ENABLED) {
     return findLeastCrowdedPosition(x, y, width, height, viewportWidth, viewportHeight);
   }
-  
-  // If queue is enabled and no position found, return null to trigger queuing
+
   return null;
 }
 
-/**
- * Check if position is within viewport bounds
- * @param {{left: number, top: number, right: number, bottom: number}} bounds
- * @param {number} viewportWidth
- * @param {number} viewportHeight
- * @returns {boolean}
- */
 function isValidPosition(bounds, viewportWidth, viewportHeight) {
-  const margin = 10; // Keep labels away from edges
+  const margin = 10;
   return (
     bounds.left >= margin &&
     bounds.right <= viewportWidth - margin &&
@@ -967,16 +879,6 @@ function isValidPosition(bounds, viewportWidth, viewportHeight) {
   );
 }
 
-/**
- * Find the position with minimum overlap when no clear spot is available
- * @param {number} x - Center x
- * @param {number} y - Center y
- * @param {number} width - Label width
- * @param {number} height - Label height
- * @param {number} viewportWidth
- * @param {number} viewportHeight
- * @returns {{x: number, y: number}}
- */
 function findLeastCrowdedPosition(x, y, width, height, viewportWidth, viewportHeight) {
   let bestPosition = { x, y: y - 30 };
   let minOverlapScore = Infinity;
@@ -1016,64 +918,44 @@ function findLeastCrowdedPosition(x, y, width, height, viewportWidth, viewportHe
   return bestPosition;
 }
 
-/**
- * Calculate how much a position overlaps with existing labels
- * Lower score is better
- * @param {{left: number, top: number, right: number, bottom: number}} bounds
- * @returns {number}
- */
 function calculateOverlapScore(bounds) {
   let score = 0;
   const padding = CONFIG.LABEL_PADDING;
-  
+
   for (const existingBounds of state.activeLabelBounds) {
-    const overlapX = Math.max(0, 
-      Math.min(bounds.right + padding, existingBounds.right + padding) - 
+    const overlapX = Math.max(0,
+      Math.min(bounds.right + padding, existingBounds.right + padding) -
       Math.max(bounds.left - padding, existingBounds.left - padding)
     );
-    
+
     const overlapY = Math.max(0,
-      Math.min(bounds.bottom + padding, existingBounds.bottom + padding) - 
+      Math.min(bounds.bottom + padding, existingBounds.bottom + padding) -
       Math.max(bounds.top - padding, existingBounds.top - padding)
     );
-    
-    score += overlapX * overlapY; // Area of overlap
+
+    score += overlapX * overlapY;
   }
-  
+
   return score;
 }
 
-/**
- * Check if a bounds rectangle collides with any active labels
- * @param {{left: number, top: number, right: number, bottom: number}} bounds
- * @returns {boolean} - True if collision detected
- */
 function hasCollision(bounds) {
   const padding = CONFIG.LABEL_PADDING;
-  
+
   for (const existingBounds of state.activeLabelBounds) {
-    // Check if rectangles overlap (with padding)
     if (
       bounds.left - padding < existingBounds.right + padding &&
       bounds.right + padding > existingBounds.left - padding &&
       bounds.top - padding < existingBounds.bottom + padding &&
       bounds.bottom + padding > existingBounds.top - padding
     ) {
-      return true; // Collision detected
+      return true;
     }
   }
-  
-  return false; // No collision
+
+  return false;
 }
 
-/**
- * Create a visual connector line from point to label
- * @param {number} x1 - Start x (point)
- * @param {number} y1 - Start y (point)
- * @param {number} x2 - End x (label center)
- * @param {number} y2 - End y (label center)
- * @returns {HTMLElement} - SVG line element
- */
 function createLabelConnector(x1, y1, x2, y2) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.style.position = 'absolute';
@@ -1100,13 +982,10 @@ function createLabelConnector(x1, y1, x2, y2) {
   return svg;
 }
 
-/**
- * Clean up expired label bounds from tracking array
- */
 function cleanupExpiredLabelBounds() {
   const now = Date.now();
-  const maxAge = CONFIG.LABEL_LIFETIME + 1000; // Add buffer
-  
+  const maxAge = CONFIG.LABEL_LIFETIME + 1000;
+
   state.activeLabelBounds = state.activeLabelBounds.filter(
     bounds => now - bounds.timestamp < maxAge
   );
@@ -1144,17 +1023,12 @@ function addLogEntry(entry) {
     state.logEntries.push(logDiv);
 
     setTimeout(() => {
-      if (logDiv.parentNode) {
-        logDiv.remove();
-      }
+      if (logDiv.parentNode) logDiv.remove();
     }, 5000);
 
-    // Keep bounded
     while (state.logEntries.length > CONFIG.MAX_LOG_ENTRIES) {
       const oldEntry = state.logEntries.shift();
-      if (oldEntry && oldEntry.parentNode) {
-        oldEntry.remove();
-      }
+      if (oldEntry && oldEntry.parentNode) oldEntry.remove();
     }
   } catch (error) {
     console.error('Error adding log entry:', error);
@@ -1213,11 +1087,10 @@ function updateStats() {
       animateStat(statAvg, '0ms');
     }
     
-    // Update upstream response time average
     if (state.upstreamTimes.length > 0) {
       const sum = state.upstreamTimes.reduce((a, b) => a + b, 0);
       const avg = sum / state.upstreamTimes.length;
-      
+
       if (!isNaN(avg) && isFinite(avg)) {
         animateStat(statUpstreamAvg, `${avg.toFixed(1)}ms`);
       } else {
@@ -1257,7 +1130,6 @@ function initResponseChart() {
   state.responseChart.imageSmoothingEnabled = true;
   state.responseChart.imageSmoothingQuality = 'high';
 
-  // Initialize with empty data
   state.chartData = new Array(CONFIG.CHART_DATA_POINTS).fill(0);
   state.chartDataPrevious = new Array(CONFIG.CHART_DATA_POINTS).fill(0);
 
@@ -1265,27 +1137,23 @@ function initResponseChart() {
 }
 
 function updateResponseChartDebounced(responseTime) {
-  // Store previous data for smooth interpolation
   state.chartDataPrevious = [...state.chartData];
-  
+
   state.chartData.push(responseTime);
-  
-  // Keep bounded
+
   while (state.chartData.length > CONFIG.CHART_DATA_POINTS) {
     state.chartData.shift();
     state.chartDataPrevious.shift();
   }
-  
-  // Ensure previous array is same length
+
   while (state.chartDataPrevious.length < state.chartData.length) {
     state.chartDataPrevious.unshift(0);
   }
-  
-  // Start smooth animation
+
   if (state.chartAnimationFrameId) {
     cancelAnimationFrame(state.chartAnimationFrameId);
   }
-  
+
   state.chartAnimationStartTime = Date.now();
   animateChart();
 }
@@ -1293,12 +1161,11 @@ function updateResponseChartDebounced(responseTime) {
 function animateChart() {
   const elapsed = Date.now() - state.chartAnimationStartTime;
   const progress = Math.min(elapsed / CONFIG.CHART_ANIMATION_DURATION, 1);
-  
-  // Easing function for smooth animation (ease-out cubic)
+
   const eased = 1 - Math.pow(1 - progress, 3);
-  
+
   drawResponseChart(eased);
-  
+
   if (progress < 1) {
     state.chartAnimationFrameId = requestAnimationFrame(animateChart);
   } else {
@@ -1320,7 +1187,6 @@ function drawResponseChart(interpolation = 1) {
     const gridColor = state.isDarkMode ? 'rgba(246, 173, 85, 0.1)' : 'rgba(99, 102, 241, 0.1)';
     const textColor = state.isDarkMode ? '#cbd5e0' : '#64748b';
 
-    // Draw grid
     state.responseChart.strokeStyle = gridColor;
     state.responseChart.lineWidth = 1;
 
@@ -1332,7 +1198,6 @@ function drawResponseChart(interpolation = 1) {
       state.responseChart.stroke();
     }
 
-    // Interpolate between previous and current values for smooth animation
     const interpolatedData = state.chartData.map((value, index) => {
       const prevValue = state.chartDataPrevious[index] || value;
       return prevValue + (value - prevValue) * interpolation;
@@ -1355,14 +1220,12 @@ function drawResponseChart(interpolation = 1) {
         y: height - (value / maxValue) * height
       }));
 
-      // Draw filled area with Catmull-Rom spline
       state.responseChart.beginPath();
-      
+
       if (points.length > 0) {
         state.responseChart.moveTo(points[0].x, points[0].y);
 
         if (points.length > 2) {
-          // Use Catmull-Rom spline for smoother curves
           drawCatmullRomSpline(state.responseChart, points, CONFIG.CHART_TENSION);
         } else if (points.length === 2) {
           state.responseChart.lineTo(points[1].x, points[1].y);
@@ -1375,9 +1238,8 @@ function drawResponseChart(interpolation = 1) {
       state.responseChart.fillStyle = gradient;
       state.responseChart.fill();
 
-      // Draw line with same smooth curve
       state.responseChart.beginPath();
-      
+
       if (points.length > 0) {
         state.responseChart.moveTo(points[0].x, points[0].y);
 
@@ -1387,11 +1249,10 @@ function drawResponseChart(interpolation = 1) {
           state.responseChart.lineTo(points[1].x, points[1].y);
         }
       }
-      
+
       state.responseChart.stroke();
     }
 
-    // Draw labels
     state.responseChart.fillStyle = textColor;
     state.responseChart.font = '10px Inter, sans-serif';
     state.responseChart.fillText(`${maxValue.toFixed(0)}ms`, 4, 10);
@@ -1401,30 +1262,23 @@ function drawResponseChart(interpolation = 1) {
   }
 }
 
-/**
- * Draw a smooth Catmull-Rom spline through the points
- * @param {CanvasRenderingContext2D} ctx - Canvas context
- * @param {Array} points - Array of {x, y} points
- * @param {number} tension - Curve tension (0-1)
- */
 function drawCatmullRomSpline(ctx, points, tension = 0.5) {
   if (points.length < 2) return;
-  
+
   const alpha = tension;
-  
+
   for (let i = 0; i < points.length - 1; i++) {
     const p0 = points[Math.max(0, i - 1)];
     const p1 = points[i];
     const p2 = points[i + 1];
     const p3 = points[Math.min(points.length - 1, i + 2)];
-    
-    // Calculate control points for Bezier curve
+
     const cp1x = p1.x + (p2.x - p0.x) / 6 * alpha;
     const cp1y = p1.y + (p2.y - p0.y) / 6 * alpha;
-    
+
     const cp2x = p2.x - (p3.x - p1.x) / 6 * alpha;
     const cp2y = p2.y - (p3.y - p1.y) / 6 * alpha;
-    
+
     ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
   }
 }
@@ -1530,9 +1384,7 @@ function applyDarkMode() {
           state.map.setPaintProperty(layer.id, 'text-halo-blur', 1);
           state.map.setPaintProperty(layer.id, 'text-opacity', 0.4);
         }
-      } catch (error) {
-        // Skip layers that don't support certain properties
-      }
+      } catch (error) {}
     });
   } catch (error) {
     console.error('Error applying dark mode:', error);
@@ -1576,17 +1428,11 @@ function hideLoading() {
 
 function showError(message) {
   console.error('Application error:', message);
-  
-  // Show error in UI
   addLogEntry({
     domain: 'Application Error',
     details: message,
     isError: true
   });
-}
-
-function handleVisibilityChange() {
-  // Page visibility changed - could be used to reduce update frequency when hidden
 }
 
 function cleanup() {
@@ -1621,13 +1467,7 @@ window.addEventListener('unhandledrejection', (event) => {
   showError('An unexpected error occurred.');
 });
 
-/**
- * Queue a label for later display when space becomes available
- * @param {Object} destination - Destination location data
- * @param {Object} data - DNS query data
- */
 function queueLabel(destination, data) {
-  // Prioritize blocked queries
   const priority = (CONFIG.LABEL_PRIORITY_BLOCKED && data.filtered) ? 1 : 0;
   
   state.labelQueue.push({
@@ -1636,57 +1476,43 @@ function queueLabel(destination, data) {
     priority,
     timestamp: Date.now()
   });
-  
-  // Keep queue bounded (max 50 items)
+
   if (state.labelQueue.length > 50) {
-    // Remove oldest low-priority items first
     const lowPriorityIndex = state.labelQueue.findIndex(item => item.priority === 0);
     if (lowPriorityIndex !== -1) {
       state.labelQueue.splice(lowPriorityIndex, 1);
     } else {
-      state.labelQueue.shift(); // Remove oldest if all are high priority
+      state.labelQueue.shift();
     }
   }
 }
 
-/**
- * Process queued labels when space becomes available
- */
 function processLabelQueue() {
   if (state.labelQueue.length === 0) return;
   if (state.activeLabels >= CONFIG.MAX_CONCURRENT_LABELS) return;
-  
-  // Sort by priority (highest first), then by age (oldest first)
+
   state.labelQueue.sort((a, b) => {
     if (b.priority !== a.priority) {
       return b.priority - a.priority;
     }
     return a.timestamp - b.timestamp;
   });
-  
-  // Display next queued label
+
   const nextLabel = state.labelQueue.shift();
   if (nextLabel) {
     addArcLabel(nextLabel.destination, nextLabel.data);
   }
 }
 
-/**
- * Calculate adaptive lifetime based on current congestion
- * @returns {number} - Lifetime in milliseconds
- */
 function calculateAdaptiveLifetime() {
   const congestionRatio = state.activeLabels / CONFIG.MAX_CONCURRENT_LABELS;
-  
+
   if (congestionRatio > 0.8) {
-    // High congestion: use minimum lifetime
     return CONFIG.LABEL_LIFETIME_MIN;
   } else if (congestionRatio > 0.5) {
-    // Medium congestion: scale between min and normal
     const range = CONFIG.LABEL_LIFETIME - CONFIG.LABEL_LIFETIME_MIN;
     return CONFIG.LABEL_LIFETIME_MIN + (range * (1 - congestionRatio) * 2);
   } else {
-    // Low congestion: use normal lifetime
     return CONFIG.LABEL_LIFETIME;
   }
 }
