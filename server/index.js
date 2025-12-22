@@ -195,6 +195,8 @@ async function pollStats() {
 async function processDNSEntry(entry) {
   const source = geoService.getSource();
 
+  console.log(`\n🔍 Processing DNS Entry: ${entry.domain} (${entry.type}) - IP: ${entry.answer?.join(', ') || 'none'}`);
+
   if (!entry.answer || entry.answer.length === 0) {
     if (entry.cname && !entry.filtered) {
       console.log(`📋 Resolving CNAME: ${entry.domain} → ${entry.cname}`);
@@ -283,7 +285,14 @@ async function processDNSEntry(entry) {
   }
 
   for (const ip of entry.answer) {
+    console.log(`  🌍 Looking up GeoIP for: ${ip}`);
     const destination = await geoService.lookup(ip);
+
+    if (destination) {
+      console.log(`  ✅ GeoIP found: ${destination.city}, ${destination.country} (${destination.lat}, ${destination.lng})`);
+    } else {
+      console.log(`  ❌ GeoIP lookup failed for: ${ip} (private IP or API failure)`);
+    }
 
     let queryTypeLabel = entry.type;
     if (entry.resolvedFromCname && entry.cname) {
@@ -292,7 +301,7 @@ async function processDNSEntry(entry) {
       queryTypeLabel = `${entry.type}→A/AAAA`;
     }
 
-    broadcast({
+    const message = {
       type: 'dns_query',
       timestamp: entry.timestamp.toISOString(),
       source,
@@ -309,7 +318,10 @@ async function processDNSEntry(entry) {
         clientIp: entry.client,
         status: entry.status
       }
-    });
+    };
+
+    console.log(`  📤 Broadcasting to clients: destination=${!!destination ? 'YES' : 'NO'}`);
+    broadcast(message);
   }
 }
 
