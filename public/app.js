@@ -2,7 +2,7 @@ const CONFIG = {
   MAX_CONCURRENT_ARCS: 100,
   MAX_LOG_ENTRIES: 15,
   MAX_CONCURRENT_LABELS: 12,
-  ARC_ANIMATION_DURATION: 100,
+  ARC_ANIMATION_DURATION: 1500,
   LABEL_LIFETIME: 5000,
   LABEL_LIFETIME_MIN: 3000,
   LABEL_PADDING: 15,
@@ -12,9 +12,6 @@ const CONFIG = {
   LABEL_PRIORITY_BLOCKED: true,
   ARC_TRAIL_COUNT: 3,
   ARC_TRAIL_LIFETIME: 2000,
-  CHART_DATA_POINTS: 50,
-  CHART_ANIMATION_DURATION: 300,
-  CHART_TENSION: 0.4,
   RECONNECT_BASE_DELAY: 1000,
   RECONNECT_MAX_DELAY: 30000,
   RECONNECT_MAX_ATTEMPTS: 10,
@@ -50,16 +47,13 @@ const state = {
   responseTimes: [],
   upstreamTimes: [],
   logEntries: [],
-  responseChart: null,
-  chartData: [],
-  chartDataPrevious: [],
-  chartAnimationStartTime: null,
-  chartAnimationFrameId: null,
   sourcePulseActive: false,
   reconnectAttempts: 0,
   reconnectTimeoutId: null,
   statsUpdateIntervalId: null,
-  filterLocal: false
+  filterLocal: false,
+  sourceLocation: { lat: 3.139, lng: 101.6869, city: 'Kuala Lumpur' },
+  sourceMarker: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -75,7 +69,6 @@ function initApp() {
   loadPreferences();
   initMap();
   connectWebSocket();
-  initResponseChart();
   setupEventListeners();
   state.statsUpdateIntervalId = setInterval(updateStats, 1000);
 }
@@ -84,10 +77,14 @@ function setupEventListeners() {
   const themeToggle = document.getElementById('theme-toggle');
   const sidebarToggle = document.getElementById('sidebar-toggle');
   const sidebarHideToggle = document.getElementById('sidebar-hide-toggle');
+  const sourceLocationToggle = document.getElementById('source-location-toggle');
+  const layoutToggle = document.getElementById('layout-toggle');
 
   if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
   if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebarPosition);
   if (sidebarHideToggle) sidebarHideToggle.addEventListener('click', toggleSidebarVisibility);
+  if (sourceLocationToggle) sourceLocationToggle.addEventListener('click', openSourceLocationModal);
+  if (layoutToggle) layoutToggle.addEventListener('click', openLayoutModal);
 
   const filterLocalToggle = document.getElementById('filter-local-toggle');
   if (filterLocalToggle) {
@@ -96,6 +93,8 @@ function setupEventListeners() {
       savePreference('filterLocal', state.filterLocal);
     });
   }
+
+  setupModalEventListeners();
 
   window.addEventListener('beforeunload', cleanup);
 }
@@ -118,6 +117,20 @@ function loadPreferences() {
       state.filterLocal = true;
       const toggle = document.getElementById('filter-local-toggle');
       if (toggle) toggle.checked = true;
+    }
+
+    const savedLayout = localStorage.getItem('dashboardLayout');
+    if (savedLayout) {
+      applyLayout(savedLayout);
+    }
+
+    const savedSourceLocation = localStorage.getItem('sourceLocation');
+    if (savedSourceLocation) {
+      try {
+        state.sourceLocation = JSON.parse(savedSourceLocation);
+      } catch (e) {
+        console.warn('Failed to parse saved source location:', e);
+      }
     }
   } catch (error) {
     console.warn('Failed to load preferences from localStorage:', error);
@@ -163,7 +176,7 @@ function addPulseSource() {
         type: 'Feature',
         geometry: {
           type: 'Point',
-          coordinates: [101.6869, 3.139]
+          coordinates: [state.sourceLocation.lng, state.sourceLocation.lat]
         }
       }]
     }
@@ -204,9 +217,13 @@ function animatePulse() {
 }
 
 function addSourceMarker() {
-  new maplibregl.Marker({ color: '#f6ad55' })
-    .setLngLat([101.6869, 3.139])
-    .setPopup(new maplibregl.Popup().setText('DNS Source: Kuala Lumpur'))
+  if (state.sourceMarker) {
+    state.sourceMarker.remove();
+  }
+
+  state.sourceMarker = new maplibregl.Marker({ color: '#f6ad55' })
+    .setLngLat([state.sourceLocation.lng, state.sourceLocation.lat])
+    .setPopup(new maplibregl.Popup().setText(`DNS Source: ${state.sourceLocation.city}`))
     .addTo(state.map);
 }
 
@@ -354,7 +371,6 @@ function handleDNSQuery(event) {
   if (!isNaN(elapsed) && elapsed > 0) {
     state.responseTimes.push(elapsed);
     if (state.responseTimes.length > 100) state.responseTimes.shift();
-    updateResponseChartDebounced(elapsed);
   }
 
   const upstreamElapsed = parseFloat(event.data.upstream);
@@ -364,7 +380,7 @@ function handleDNSQuery(event) {
   }
 }
 
-function createArc(source, destination, data) {
+function createArc(_source, destination, data) {
   const arcId = `arc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   state.activeArcs.push(arcId);
@@ -373,8 +389,9 @@ function createArc(source, destination, data) {
 
   triggerSourcePulse();
 
+  // Use the custom source location from state instead of the server-provided source
   const lineString = createArcGeometry(
-    [source.lng, source.lat],
+    [state.sourceLocation.lng, state.sourceLocation.lat],
     [destination.lng, destination.lat]
   );
 
@@ -393,8 +410,9 @@ function createArc(source, destination, data) {
       source: arcId,
       paint: {
         'line-color': arcColor,
-        'line-width': 2,
-        'line-opacity': 0.8
+        'line-width': state.isDarkMode ? 2 : 3,
+        'line-opacity': state.isDarkMode ? 0.8 : 0.9,
+        'line-blur': state.isDarkMode ? 0 : 0.5
       }
     });
 
@@ -409,13 +427,26 @@ function createArcGeometry(start, end) {
   const steps = 50;
   const coordinates = [];
 
+  // Calculate distance for arc height
+  const dx = end[0] - start[0];
+  const dy = end[1] - start[1];
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // Subtle arc height - just a gentle curve
+  const arcHeight = distance * 0.15;
+
+  // Generate path with subtle curve
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
+
+    // Linear interpolation for base position
     const lng = start[0] + (end[0] - start[0]) * t;
     const lat = start[1] + (end[1] - start[1]) * t;
-    const arcHeight = Math.sin(t * Math.PI) * 0.3;
 
-    coordinates.push([lng, lat + arcHeight]);
+    // Add subtle parabolic arc height (peaks at midpoint)
+    const height = Math.sin(t * Math.PI) * arcHeight;
+
+    coordinates.push([lng, lat + height]);
   }
 
   return {
@@ -488,8 +519,9 @@ function createArcTrail(lineString, arcColor) {
           source: trailId,
           paint: {
             'line-color': arcColor,
-            'line-width': 1.5,
-            'line-opacity': opacity
+            'line-width': state.isDarkMode ? 1.5 : 2.5,
+            'line-opacity': state.isDarkMode ? opacity : opacity * 1.2,
+            'line-blur': state.isDarkMode ? 0 : 0.5
           }
         });
 
@@ -1048,157 +1080,6 @@ function animateStat(element, newValue) {
   }
 }
 
-function initResponseChart() {
-  const canvas = document.getElementById('response-chart');
-  if (!canvas) return;
-
-  state.responseChart = canvas.getContext('2d');
-  state.responseChart.imageSmoothingEnabled = true;
-  state.responseChart.imageSmoothingQuality = 'high';
-
-  state.chartData = new Array(CONFIG.CHART_DATA_POINTS).fill(0);
-  state.chartDataPrevious = new Array(CONFIG.CHART_DATA_POINTS).fill(0);
-
-  drawResponseChart();
-}
-
-function updateResponseChartDebounced(responseTime) {
-  state.chartDataPrevious = [...state.chartData];
-
-  state.chartData.push(responseTime);
-
-  while (state.chartData.length > CONFIG.CHART_DATA_POINTS) {
-    state.chartData.shift();
-    state.chartDataPrevious.shift();
-  }
-
-  while (state.chartDataPrevious.length < state.chartData.length) {
-    state.chartDataPrevious.unshift(0);
-  }
-
-  if (state.chartAnimationFrameId) {
-    cancelAnimationFrame(state.chartAnimationFrameId);
-  }
-
-  state.chartAnimationStartTime = Date.now();
-  animateChart();
-}
-
-function animateChart() {
-  const elapsed = Date.now() - state.chartAnimationStartTime;
-  const progress = Math.min(elapsed / CONFIG.CHART_ANIMATION_DURATION, 1);
-
-  const eased = 1 - Math.pow(1 - progress, 3);
-
-  drawResponseChart(eased);
-
-  if (progress < 1) {
-    state.chartAnimationFrameId = requestAnimationFrame(animateChart);
-  } else {
-    state.chartAnimationFrameId = null;
-  }
-}
-
-function drawResponseChart(interpolation = 1) {
-  if (!state.responseChart) return;
-
-  try {
-    const canvas = state.responseChart.canvas;
-    const width = canvas.width;
-    const height = canvas.height;
-
-    state.responseChart.clearRect(0, 0, width, height);
-
-    const lineColor = state.isDarkMode ? '#f6ad55' : '#6366f1';
-    const gridColor = state.isDarkMode ? 'rgba(246, 173, 85, 0.1)' : 'rgba(99, 102, 241, 0.1)';
-    const textColor = state.isDarkMode ? '#cbd5e0' : '#64748b';
-
-    state.responseChart.strokeStyle = gridColor;
-    state.responseChart.lineWidth = 1;
-
-    for (let i = 0; i <= 4; i++) {
-      const y = (height / 4) * i;
-      state.responseChart.beginPath();
-      state.responseChart.moveTo(0, y);
-      state.responseChart.lineTo(width, y);
-      state.responseChart.stroke();
-    }
-
-    const interpolatedData = state.chartData.map((value, index) => {
-      const prevValue = state.chartDataPrevious[index] || value;
-      return prevValue + (value - prevValue) * interpolation;
-    });
-
-    const maxValue = Math.max(...interpolatedData, 50);
-
-    if (interpolatedData.length > 0) {
-      state.responseChart.strokeStyle = lineColor;
-      state.responseChart.lineWidth = 2.5;
-      state.responseChart.lineCap = 'round';
-      state.responseChart.lineJoin = 'round';
-
-      const gradient = state.responseChart.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, state.isDarkMode ? 'rgba(246, 173, 85, 0.2)' : 'rgba(99, 102, 241, 0.15)');
-      gradient.addColorStop(1, state.isDarkMode ? 'rgba(246, 173, 85, 0)' : 'rgba(99, 102, 241, 0)');
-
-      const points = interpolatedData.map((value, index) => ({
-        x: (width / Math.max(interpolatedData.length - 1, 1)) * index,
-        y: height - (value / maxValue) * height
-      }));
-
-      const drawPath = () => {
-        if (points.length === 0) return;
-        state.responseChart.moveTo(points[0].x, points[0].y);
-        if (points.length > 2) {
-          drawCatmullRomSpline(state.responseChart, points, CONFIG.CHART_TENSION);
-        } else if (points.length === 2) {
-          state.responseChart.lineTo(points[1].x, points[1].y);
-        }
-      };
-
-      state.responseChart.beginPath();
-      drawPath();
-      state.responseChart.lineTo(width, height);
-      state.responseChart.lineTo(0, height);
-      state.responseChart.closePath();
-      state.responseChart.fillStyle = gradient;
-      state.responseChart.fill();
-
-      state.responseChart.beginPath();
-      drawPath();
-      state.responseChart.stroke();
-    }
-
-    state.responseChart.fillStyle = textColor;
-    state.responseChart.font = '10px Inter, sans-serif';
-    state.responseChart.fillText(`${maxValue.toFixed(0)}ms`, 4, 10);
-    state.responseChart.fillText('0ms', 4, height - 2);
-  } catch (error) {
-    console.error('Error drawing chart:', error);
-  }
-}
-
-function drawCatmullRomSpline(ctx, points, tension = 0.5) {
-  if (points.length < 2) return;
-
-  const alpha = tension;
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[Math.max(0, i - 1)];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[Math.min(points.length - 1, i + 2)];
-
-    const cp1x = p1.x + (p2.x - p0.x) / 6 * alpha;
-    const cp1y = p1.y + (p2.y - p0.y) / 6 * alpha;
-
-    const cp2x = p2.x - (p3.x - p1.x) / 6 * alpha;
-    const cp2y = p2.y - (p3.y - p1.y) / 6 * alpha;
-
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-  }
-}
-
 function toggleTheme() {
   state.isDarkMode = !state.isDarkMode;
   const themeIcon = document.getElementById('theme-icon');
@@ -1418,5 +1299,270 @@ function calculateAdaptiveLifetime() {
     return CONFIG.LABEL_LIFETIME_MIN + (range * (1 - congestionRatio) * 2);
   } else {
     return CONFIG.LABEL_LIFETIME;
+  }
+}
+
+// Modal Functions
+function setupModalEventListeners() {
+  const sourceLocationModal = document.getElementById('source-location-modal');
+  const modalCloseBtn = document.getElementById('modal-close-btn');
+  const modalBackdrop = sourceLocationModal?.querySelector('.modal-backdrop');
+  const saveSourceBtn = document.getElementById('save-source-btn');
+  const resetSourceBtn = document.getElementById('reset-source-btn');
+
+  if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', closeSourceLocationModal);
+  }
+
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener('click', closeSourceLocationModal);
+  }
+
+  if (saveSourceBtn) {
+    saveSourceBtn.addEventListener('click', saveSourceLocation);
+  }
+
+  if (resetSourceBtn) {
+    resetSourceBtn.addEventListener('click', resetSourceLocation);
+  }
+
+
+  // Populate city presets
+  populateCityPresets();
+
+  // Handle city preset selection
+  const cityPreset = document.getElementById('city-preset');
+  if (cityPreset) {
+    cityPreset.addEventListener('change', handleCityPresetChange);
+  }
+
+  // Handle coordinate input validation
+  const sourceLat = document.getElementById('source-lat');
+  const sourceLng = document.getElementById('source-lng');
+  if (sourceLat) sourceLat.addEventListener('input', validateCoordinates);
+  if (sourceLng) sourceLng.addEventListener('input', validateCoordinates);
+}
+
+function openSourceLocationModal() {
+  const modal = document.getElementById('source-location-modal');
+  if (modal) {
+    modal.classList.add('active');
+    // Load current values
+    loadCurrentSourceLocation();
+  }
+}
+
+function closeSourceLocationModal() {
+  const modal = document.getElementById('source-location-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+function openLayoutModal() {
+  cycleLayout();
+}
+
+function populateCityPresets() {
+  const cityPreset = document.getElementById('city-preset');
+  if (!cityPreset) return;
+
+  const cities = [
+    { name: 'Kuala Lumpur, Malaysia', lat: 3.139, lng: 101.6869 },
+    { name: 'New York, USA', lat: 40.7128, lng: -74.0060 },
+    { name: 'London, UK', lat: 51.5074, lng: -0.1278 },
+    { name: 'Tokyo, Japan', lat: 35.6762, lng: 139.6503 },
+    { name: 'Singapore', lat: 1.3521, lng: 103.8198 },
+    { name: 'Sydney, Australia', lat: -33.8688, lng: 151.2093 },
+    { name: 'Paris, France', lat: 48.8566, lng: 2.3522 },
+    { name: 'Berlin, Germany', lat: 52.5200, lng: 13.4050 },
+    { name: 'Dubai, UAE', lat: 25.2048, lng: 55.2708 },
+    { name: 'Hong Kong', lat: 22.3193, lng: 114.1694 },
+    { name: 'San Francisco, USA', lat: 37.7749, lng: -122.4194 },
+    { name: 'Toronto, Canada', lat: 43.6532, lng: -79.3832 }
+  ];
+
+  cities.forEach(city => {
+    const option = document.createElement('option');
+    option.value = JSON.stringify({ lat: city.lat, lng: city.lng, name: city.name });
+    option.textContent = city.name;
+    cityPreset.appendChild(option);
+  });
+}
+
+function handleCityPresetChange(e) {
+  if (!e.target.value) return;
+
+  try {
+    const city = JSON.parse(e.target.value);
+    const sourceLat = document.getElementById('source-lat');
+    const sourceLng = document.getElementById('source-lng');
+    const sourceCity = document.getElementById('source-city');
+
+    if (sourceLat) sourceLat.value = city.lat;
+    if (sourceLng) sourceLng.value = city.lng;
+    if (sourceCity) sourceCity.value = city.name;
+
+    validateCoordinates();
+  } catch (error) {
+    console.error('Error parsing city preset:', error);
+  }
+}
+
+function validateCoordinates() {
+  const sourceLat = document.getElementById('source-lat');
+  const sourceLng = document.getElementById('source-lng');
+  const validationMessage = document.getElementById('validation-message');
+
+  if (!sourceLat || !sourceLng || !validationMessage) return;
+
+  const lat = parseFloat(sourceLat.value);
+  const lng = parseFloat(sourceLng.value);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    validationMessage.textContent = '';
+    validationMessage.style.color = '';
+    return;
+  }
+
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    validationMessage.textContent = '⚠️ Invalid coordinates. Lat: -90 to 90, Lng: -180 to 180';
+    validationMessage.style.color = '#f87171';
+  } else {
+    validationMessage.textContent = '✓ Valid coordinates';
+    validationMessage.style.color = '#34d399';
+  }
+}
+
+function loadCurrentSourceLocation() {
+  const sourceLat = document.getElementById('source-lat');
+  const sourceLng = document.getElementById('source-lng');
+  const sourceCity = document.getElementById('source-city');
+
+  if (sourceLat) sourceLat.value = state.sourceLocation.lat;
+  if (sourceLng) sourceLng.value = state.sourceLocation.lng;
+  if (sourceCity) sourceCity.value = state.sourceLocation.city;
+}
+
+function saveSourceLocation() {
+  const sourceLat = document.getElementById('source-lat');
+  const sourceLng = document.getElementById('source-lng');
+  const sourceCity = document.getElementById('source-city');
+
+  if (!sourceLat || !sourceLng) return;
+
+  const lat = parseFloat(sourceLat.value);
+  const lng = parseFloat(sourceLng.value);
+
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    alert('Please enter valid coordinates');
+    return;
+  }
+
+  // Update state
+  state.sourceLocation = {
+    lat,
+    lng,
+    city: sourceCity?.value || 'Custom Location'
+  };
+
+  // Save to localStorage
+  localStorage.setItem('sourceLocation', JSON.stringify(state.sourceLocation));
+
+  // Update the map immediately
+  updateSourceLocationOnMap();
+
+  closeSourceLocationModal();
+}
+
+function resetSourceLocation() {
+  state.sourceLocation = { lat: 3.139, lng: 101.6869, city: 'Kuala Lumpur' };
+  localStorage.removeItem('sourceLocation');
+  loadCurrentSourceLocation();
+  updateSourceLocationOnMap();
+}
+
+function updateSourceLocationOnMap() {
+  if (!state.map) return;
+
+  // Update pulse source
+  const pulseSource = state.map.getSource('pulse-source');
+  if (pulseSource) {
+    pulseSource.setData({
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [state.sourceLocation.lng, state.sourceLocation.lat]
+        }
+      }]
+    });
+  }
+
+  // Update marker
+  if (state.sourceMarker) {
+    state.sourceMarker.setLngLat([state.sourceLocation.lng, state.sourceLocation.lat]);
+    state.sourceMarker.setPopup(new maplibregl.Popup().setText(`DNS Source: ${state.sourceLocation.city}`));
+  }
+
+  // Optionally pan to the new location
+  state.map.flyTo({
+    center: [state.sourceLocation.lng, state.sourceLocation.lat],
+    zoom: Math.max(state.map.getZoom(), 4),
+    duration: 2000
+  });
+}
+
+function cycleLayout() {
+  const layouts = ['full', 'minimal', 'compact'];
+  const currentLayout = localStorage.getItem('dashboardLayout') || 'full';
+  const currentIndex = layouts.indexOf(currentLayout);
+  const nextIndex = (currentIndex + 1) % layouts.length;
+  const nextLayout = layouts[nextIndex];
+
+  localStorage.setItem('dashboardLayout', nextLayout);
+  applyLayout(nextLayout);
+
+  // Show a brief notification
+  showLayoutNotification(nextLayout);
+}
+
+function showLayoutNotification(layout) {
+  const layoutNames = {
+    full: 'Full Layout',
+    minimal: 'Minimal Layout',
+    compact: 'Compact Layout'
+  };
+
+  // Create notification element if it doesn't exist
+  let notification = document.getElementById('layout-notification');
+  if (!notification) {
+    notification = document.createElement('div');
+    notification.id = 'layout-notification';
+    notification.className = 'layout-notification';
+    document.body.appendChild(notification);
+  }
+
+  notification.textContent = layoutNames[layout];
+  notification.classList.add('show');
+
+  // Remove after 2 seconds
+  setTimeout(() => {
+    notification.classList.remove('show');
+  }, 2000);
+}
+
+function applyLayout(layout) {
+  const sidebar = document.querySelector('.sidebar');
+
+  if (!sidebar) return;
+
+  // Remove all layout classes
+  sidebar.classList.remove('layout-full', 'layout-minimal', 'layout-compact');
+
+  // Add the selected layout class
+  if (layout !== 'full') {
+    sidebar.classList.add(`layout-${layout}`);
   }
 }

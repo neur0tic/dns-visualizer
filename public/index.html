@@ -75,11 +75,8 @@
                     </label>
                 </div>
             </div>
-
-            <div class="response-graph">
-                <canvas id="response-chart" width="332" height="80"></canvas>
-            </div>
         </div>
+
 
         <div class="sidebar-section">
             <div class="log-stream-title">DNS Query Log</div>
@@ -108,6 +105,27 @@
 
     <div class="sidebar-hide-toggle" id="sidebar-hide-toggle" title="Hide/Show sidebar">
         <button id="sidebar-hide-icon">◀</button>
+    </div>
+
+    <div class="source-location-toggle" id="source-location-toggle" title="Change DNS Source Location">
+        <button id="source-location-toggle-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+        </button>
+    </div>
+
+    <div class="layout-toggle" id="layout-toggle" title="Cycle Sidebar Layout (Full → Minimal → Compact)">
+        <button id="layout-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+        </button>
     </div>
 
     <div class="dns-legend">
@@ -152,6 +170,50 @@
             <div class="legend-item">
                 <span class="legend-color" style="background: #667eea;"></span>
                 <span class="legend-label">CAA</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="source-location-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>DNS Source Location</h2>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-section">
+                    <label for="city-preset">Quick Select City</label>
+                    <select id="city-preset" class="form-select">
+                        <option value="">Select a city...</option>
+                    </select>
+                </div>
+
+                <div class="form-section">
+                    <label>Custom Coordinates</label>
+                    <div class="coordinate-inputs">
+                        <input type="number" id="source-lat" placeholder="Latitude" step="0.0001" min="-90" max="90"
+                            class="form-input">
+                        <input type="number" id="source-lng" placeholder="Longitude" step="0.0001" min="-180" max="180"
+                            class="form-input">
+                    </div>
+                    <div class="validation-message" id="validation-message"></div>
+                </div>
+
+                <div class="form-section">
+                    <label for="source-city">Location Name</label>
+                    <input type="text" id="source-city" placeholder="e.g., London" maxlength="50" class="form-input">
+                </div>
+
+                <div class="modal-info">
+                    <p>💡 <strong>Tip:</strong> Select a city from the dropdown or enter custom coordinates</p>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="reset-source-btn" class="btn-secondary">Reset to Default</button>
+                <button id="save-source-btn" class="btn-primary">Save Location</button>
             </div>
         </div>
     </div>
