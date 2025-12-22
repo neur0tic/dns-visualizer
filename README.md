@@ -10,6 +10,12 @@ When you visit a website, your computer asks "where is google.com?" - that's a D
 
 You'll need Node.js 18+ and AdGuard Home running.
 
+**Note:** Node.js 18 or higher is required. If you're on an older version, upgrade first:
+```bash
+node -v  # Check your version
+# If below v18, upgrade from nodejs.org or use nvm
+```
+
 ```bash
 # Clone and install
 git clone https://github.com/neur0tic/dns-visualizer.git
