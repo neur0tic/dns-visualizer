@@ -36,6 +36,9 @@ ADGUARD_URL=http://localhost:3000
 ADGUARD_USERNAME=admin
 ADGUARD_PASSWORD=your_password
 
+# Server port (change if 8080 is already in use)
+PORT=8080
+
 # Your location (default is Kuala Lumpur)
 SOURCE_LAT=3.139
 SOURCE_LNG=101.6869
