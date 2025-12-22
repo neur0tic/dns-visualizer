@@ -1,232 +1,136 @@
 # DNS Visualization Dashboard
 
-A real-time DNS traffic visualization dashboard that connects to AdGuard Home and displays DNS queries as animated arcs on an interactive world map using MapLibre GL JS.
+A real-time visualization of DNS queries on a world map. Watch your network's DNS traffic as animated arcs connecting your location to servers around the globe.
 
-## Features
+## What is this?
 
-- **Real-time DNS Traffic Visualization**: Live streaming of DNS queries from AdGuard Home
-- **Interactive World Map**: Built with MapLibre GL JS with dark/light theme support
-- **Animated Arcs**: Beautiful arc animations from Kuala Lumpur (source) to destination IPs
-- **Live Log Stream**: Display last 10 DNS queries with auto-fade animation
-- **Performance Optimized**:
-  - Limited concurrent arcs (100 max)
-  - IP geolocation caching
-  - Efficient WebSocket streaming
-  - Request deduplication
-- **Security Focused**:
-  - Helmet.js security headers
-  - Rate limiting
-  - Input sanitization
-  - CSP policies
-- **Clean Minimalistic UI**: Sophisticated dark theme with gold accents
+When you visit a website, your computer asks "where is google.com?" - that's a DNS query. This tool connects to AdGuard Home, grabs those queries, figures out where the servers are located, and draws them on a map. It's pretty neat to see where your internet traffic actually goes.
 
-## Architecture
+## Quick Start
 
-```
-┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-│ AdGuard     │─────▶│   Node.js    │─────▶│  Browser    │
-│ Home API    │      │   Server     │      │  (MapLibre) │
-└─────────────┘      │              │      └─────────────┘
-                     │ - API Client │
-                     │ - WebSocket  │
-                     │ - GeoIP      │
-                     └──────────────┘
+You'll need Node.js 18+ and AdGuard Home running.
+
+```bash
+# Clone and install
+git clone https://github.com/neur0tic/dns-visualizer.git
+cd dns-visualizer
+npm install
+
+# Set up config
+cp .env.example .env
+# Edit .env with your AdGuard credentials
+
+# Run it
+npm start
 ```
 
-### Components
-
-**Backend (`/server`)**:
-- `index.js`: Express server with WebSocket support
-- `adguard-client.js`: AdGuard Home API client with authentication
-- `geo-service.js`: IP geolocation using geoip-lite with caching
-
-**Frontend (`/public`)**:
-- `index.html`: Main dashboard UI
-- `app.js`: MapLibre integration and WebSocket client
-
-## Installation
-
-### Prerequisites
-
-- Node.js 18+
-- AdGuard Home instance with API access
-- Network access to AdGuard Home API
-
-### Setup
-
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment**:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Edit `.env` file**:
-   ```env
-   ADGUARD_URL=http://your-adguard-home:3000
-   ADGUARD_USERNAME=your_username
-   ADGUARD_PASSWORD=your_password
-   PORT=8080
-   SOURCE_LAT=3.139
-   SOURCE_LNG=101.6869
-   ```
-
-4. **Start the server**:
-   ```bash
-   npm start
-   ```
-
-5. **Access dashboard**:
-   Open browser to `http://localhost:8080`
+Open `http://localhost:8080` and you should see a map. Browse some websites and watch the arcs appear.
 
 ## Configuration
 
-### Environment Variables
+Edit the `.env` file:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ADGUARD_URL` | AdGuard Home URL | `http://localhost:3000` |
-| `ADGUARD_USERNAME` | AdGuard username | `admin` |
-| `ADGUARD_PASSWORD` | AdGuard password | - |
-| `PORT` | Server port | `8080` |
-| `SOURCE_LAT` | Source latitude (KL) | `3.139` |
-| `SOURCE_LNG` | Source longitude (KL) | `101.6869` |
-| `MAX_CONCURRENT_ARCS` | Max simultaneous arcs | `100` |
-| `LOG_RETENTION_COUNT` | Max log entries | `10` |
-| `POLL_INTERVAL_MS` | Polling interval | `2000` |
+```env
+# AdGuard connection
+ADGUARD_URL=http://localhost:3000
+ADGUARD_USERNAME=admin
+ADGUARD_PASSWORD=your_password
 
-### Performance Tuning
+# Server port (change if 8080 is already in use)
+PORT=8080
 
-**For high-traffic environments**:
-- Reduce `POLL_INTERVAL_MS` for more frequent updates
-- Increase `MAX_CONCURRENT_ARCS` if you have powerful hardware
-- Adjust `LOG_RETENTION_COUNT` based on screen size
+# Your location (default is Kuala Lumpur)
+SOURCE_LAT=3.139
+SOURCE_LNG=101.6869
 
-**For low-traffic or resource-constrained**:
-- Increase `POLL_INTERVAL_MS` to reduce CPU usage
-- Decrease `MAX_CONCURRENT_ARCS` to improve rendering performance
+# How often to poll for new queries (milliseconds)
+POLL_INTERVAL_MS=2000
 
-## Security Best Practices
-
-### Implemented Security Measures
-
-1. **Authentication**: Basic auth to AdGuard Home API
-2. **Rate Limiting**: 100 requests per 15 minutes per IP
-3. **Security Headers**: Helmet.js with CSP
-4. **Input Sanitization**: All DNS data sanitized
-5. **HTTPS Support**: WebSocket upgrades to WSS
-6. **Private IP Filtering**: Local IPs excluded from visualization
-
-### Recommended Deployment
-
-1. **Use HTTPS**: Deploy behind reverse proxy (nginx/Caddy)
-2. **Firewall**: Restrict access to trusted networks
-3. **Environment Variables**: Never commit `.env` file
-4. **Updates**: Keep dependencies updated (`npm audit`)
-5. **Monitoring**: Monitor WebSocket connections and memory usage
-
-### Example Nginx Configuration
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name dns-viz.yourdomain.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+# Max arcs to show at once
+MAX_CONCURRENT_ARCS=100
 ```
 
-## API Integration
+Find your coordinates at [latlong.net](https://www.latlong.net/) if you want to set your actual location.
 
-### AdGuard Home API Endpoints Used
+## Features
 
-- `POST /control/querylog`: Fetch DNS query logs
-- `GET /control/status`: Health check
+**Map stuff:**
+- Dark/light themes
+- Move sidebar left or right
+- Set your own location
+- Filter out .local traffic
 
-### WebSocket Protocol
+**Stats:**
+- Active queries on the map
+- Total queries counted
+- Blocked queries (ads/trackers)
+- Response times
 
-**Client → Server**: Connection only, no messages sent
-
-**Server → Client**: JSON messages
-
-```json
-{
-  "type": "dns_query",
-  "timestamp": "2024-01-01T00:00:00.000Z",
-  "source": {
-    "lat": 3.139,
-    "lng": 101.6869,
-    "city": "Kuala Lumpur"
-  },
-  "destination": {
-    "lat": 37.7749,
-    "lng": -122.4194,
-    "city": "San Francisco",
-    "country": "US"
-  },
-  "data": {
-    "domain": "example.com",
-    "queryType": "A",
-    "ip": "93.184.216.34",
-    "elapsed": 15,
-    "status": "processed",
-    "cached": false
-  }
-}
-```
+**Colors:**
+Different DNS record types get different colors - A records are orange, AAAA are blue, CNAME are green, etc.
 
 ## Troubleshooting
 
-### Connection Issues
+**Can't connect to AdGuard:**
+Check that AdGuard is actually running and the URL in `.env` is right. Try opening `http://localhost:3000` in your browser.
 
-**"Failed to connect to AdGuard Home"**:
-- Verify `ADGUARD_URL` is correct
-- Check AdGuard Home is running
-- Verify credentials in `.env`
-- Check firewall/network access
+**No arcs showing up:**
+Make sure query logging is enabled in AdGuard (Settings → DNS Settings). Also try browsing some websites to generate queries.
 
-**WebSocket disconnects**:
-- Check browser console for errors
-- Verify server is running
-- Check reverse proxy WebSocket support
+**WebSocket keeps disconnecting:**
+Refresh the page. If it keeps happening, check the server logs for errors.
 
-### Performance Issues
+**Using too much CPU:**
+Lower `MAX_CONCURRENT_ARCS` to 50 and increase `POLL_INTERVAL_MS` to 5000 in your `.env` file.
 
-**High CPU usage**:
-- Reduce `MAX_CONCURRENT_ARCS`
-- Increase `POLL_INTERVAL_MS`
-- Check for memory leaks in browser
+## Performance tuning
 
-**Arcs not showing**:
-- Check browser console for errors
-- Verify DNS queries have answer IPs
-- Check GeoIP database loaded successfully
+For a busy network, you might want:
+```env
+POLL_INTERVAL_MS=1000
+MAX_CONCURRENT_ARCS=200
+GEOIP_MAX_CACHE_SIZE=50000
+```
+
+For a home network or slower computer:
+```env
+POLL_INTERVAL_MS=5000
+MAX_CONCURRENT_ARCS=50
+GEOIP_MAX_CACHE_SIZE=5000
+```
+
+## Project structure
+
+```
+server/
+  index.js           - Main server and WebSocket
+  adguard-client.js  - Talks to AdGuard API
+  geo-service.js     - Handles IP geolocation with caching
+
+public/
+  index.html         - The UI
+  app.js            - Map rendering and animations
+  styles.css        - How it looks
+```
 
 ## Development
 
 ```bash
-# Watch mode (Node 18+)
-npm run dev
-
-# Check logs
-tail -f server.log
-
-# Test AdGuard connection
-curl -u username:password http://adguard-url/control/status
+npm run dev  # Auto-reload on changes
+npm start    # Production mode
 ```
+
+The browser console (F12) will show you what's happening. Server logs go to stdout.
+
+## API endpoints
+
+- `GET /health` - Server status
+- `GET /` - The dashboard
+- `WS /` - WebSocket for real-time updates
+
+## Contributing
+
+Pull requests welcome. Please test your changes and keep the code style consistent.
 
 ## License
 
@@ -234,6 +138,4 @@ MIT
 
 ## Credits
 
-- MapLibre GL JS for mapping
-- AdGuard Home for DNS filtering
-- geoip-lite for IP geolocation
+Built with MapLibre GL, AdGuard Home, and ip-api.com. Thanks to those projects for making this possible.

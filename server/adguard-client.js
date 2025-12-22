@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import dns from 'dns/promises';
 
 /**
  * AdGuard Home API Client
@@ -106,6 +107,8 @@ class AdGuardClient {
         upstreamElapsed = (totalElapsed * 0.5).toFixed(2);
       }
 
+      const parsedAnswer = this.parseAnswer(log.answer);
+
       return {
         timestamp: new Date(log.time),
         client: this.sanitizeIP(log.client),
@@ -113,7 +116,8 @@ class AdGuardClient {
         type: log.question?.type || 'A',
         status: log.status || 'NOERROR',
         elapsed: totalElapsed.toFixed(2),
-        answer: this.parseAnswer(log.answer),
+        answer: parsedAnswer.ips, // Extract IPs array
+        cname: parsedAnswer.cname, // Store CNAME for later resolution
         upstream: log.upstream || '',
         upstreamElapsed,
         cached: log.cached || false,
@@ -125,17 +129,82 @@ class AdGuardClient {
 
   /**
    * Parse DNS answer to extract IP addresses
+   * Follows CNAME chains when possible
    * @param {Array} answer - DNS answer array
-   * @returns {Array} Array of IP addresses
+   * @returns {Object} Object with IPs array and optional CNAME to resolve
    */
   parseAnswer(answer) {
-    if (!answer || !Array.isArray(answer)) return [];
+    if (!answer || !Array.isArray(answer)) return { ips: [], cname: null };
 
-    return answer
-      .filter(a => (a.type === 'A' || a.type === 'AAAA') && a.value)
-      .map(a => a.value)
-      .filter(ip => this.isValidIP(ip))
-      .slice(0, 3); // Limit to first 3 IPs for performance
+    const ips = [];
+    let cnameTarget = null;
+
+    // First pass: collect all A/AAAA records directly
+    for (const record of answer) {
+      if ((record.type === 'A' || record.type === 'AAAA') && record.value) {
+        if (this.isValidIP(record.value)) {
+          ips.push(record.value);
+        }
+      } else if (record.type === 'CNAME' && record.value && !cnameTarget) {
+        // Store the first CNAME target for potential resolution
+        cnameTarget = record.value;
+      }
+    }
+
+    // If we found IPs, return them (most common case)
+    if (ips.length > 0) {
+      return { ips: ips.slice(0, 3), cname: null };
+    }
+
+    // Second pass: if no IPs found, check if there are CNAMEs with nested answers
+    const allRecords = answer.flatMap(a => {
+      // Check if this is a CNAME with nested answer
+      if (a.type === 'CNAME' && Array.isArray(a.answer)) {
+        return a.answer;
+      }
+      return [a];
+    });
+
+    // Try again with flattened records
+    for (const record of allRecords) {
+      if ((record.type === 'A' || record.type === 'AAAA') && record.value) {
+        if (this.isValidIP(record.value)) {
+          ips.push(record.value);
+        }
+      }
+    }
+
+    if (ips.length > 0) {
+      return { ips: ips.slice(0, 3), cname: null };
+    }
+
+    // No IPs found, return CNAME for potential resolution
+    return { ips: [], cname: cnameTarget };
+  }
+
+  /**
+   * Resolve CNAME to IP addresses using system DNS
+   * @param {string} hostname - Hostname to resolve
+   * @returns {Promise<Array>} Array of IP addresses
+   */
+  async resolveCNAME(hostname) {
+    if (!hostname || typeof hostname !== 'string') return [];
+
+    try {
+      // Try IPv4 first
+      const addresses = await dns.resolve4(hostname);
+      return addresses.slice(0, 3); // Limit to 3 IPs
+    } catch (err) {
+      // If IPv4 fails, try IPv6
+      try {
+        const addresses = await dns.resolve6(hostname);
+        return addresses.slice(0, 3);
+      } catch (err2) {
+        // Both failed
+        console.log(`📋 CNAME resolution failed for ${hostname}: ${err.code || err.message}`);
+        return [];
+      }
+    }
   }
 
   /**

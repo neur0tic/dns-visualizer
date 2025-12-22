@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DNS Visualization Dashboard</title>
 
-    <!-- MapLibre GL JS -->
     <script src="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@4.1.1/dist/maplibre-gl.css" rel="stylesheet" />
 
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Custom Styles -->
     <link href="styles.css" rel="stylesheet" />
 </head>
+
 <body>
     <div id="map"></div>
 
@@ -23,7 +22,6 @@
         <div>Connecting to DNS stream...</div>
     </div>
 
-    <!-- Top Navbar (shown when sidebar is hidden) -->
     <div class="top-navbar" id="top-navbar">
         <h1>DNS Visualization Dashboard</h1>
         <div class="status">
@@ -32,9 +30,7 @@
         </div>
     </div>
 
-    <!-- Sidebar -->
     <div class="sidebar">
-        <!-- Header Section -->
         <div class="sidebar-section sidebar-header">
             <h1>DNS Visualization Dashboard</h1>
             <div class="status">
@@ -43,7 +39,6 @@
             </div>
         </div>
 
-        <!-- Stats Section -->
         <div class="sidebar-section">
             <div class="stats-title">Active Queries</div>
             <div class="stat-item">
@@ -71,45 +66,68 @@
                 <span class="stat-value" id="stat-adguard-avg">0ms</span>
             </div>
 
-            <!-- Response Time Graph -->
-            <div class="response-graph">
-                <canvas id="response-chart" width="332" height="80"></canvas>
+            <div class="filter-controls">
+                <div class="filter-item">
+                    <label for="filter-local-toggle">Filter .local traffic</label>
+                    <label class="switch">
+                        <input type="checkbox" id="filter-local-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
             </div>
         </div>
 
-        <!-- Log Stream Section -->
+
         <div class="sidebar-section">
             <div class="log-stream-title">DNS Query Log</div>
             <div class="log-stream-content" id="log-container"></div>
         </div>
 
-        <!-- Footer Section -->
         <div class="sidebar-footer">
-            <a href="https://github.com/neur0tic/dns-visualizer" target="_blank" rel="noopener noreferrer" class="footer-link">
+            <a href="https://github.com/neur0tic/dns-visualizer" target="_blank" rel="noopener noreferrer"
+                class="footer-link">
                 <svg class="github-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    <path
+                        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                 </svg>
                 <span>neur0tic/dns-visualizer</span>
             </a>
         </div>
     </div>
 
-    <!-- Theme Toggle -->
     <div class="theme-toggle" id="theme-toggle">
         <button id="theme-icon">☀️</button>
     </div>
 
-    <!-- Sidebar Position Toggle -->
     <div class="sidebar-toggle" id="sidebar-toggle" title="Move sidebar to other side">
         <button id="sidebar-icon">⇄</button>
     </div>
 
-    <!-- Sidebar Hide Toggle -->
     <div class="sidebar-hide-toggle" id="sidebar-hide-toggle" title="Hide/Show sidebar">
         <button id="sidebar-hide-icon">◀</button>
     </div>
 
-    <!-- DNS Type Legend -->
+    <div class="source-location-toggle" id="source-location-toggle" title="Change DNS Source Location">
+        <button id="source-location-toggle-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+        </button>
+    </div>
+
+    <div class="layout-toggle" id="layout-toggle" title="Cycle Sidebar Layout (Full → Minimal → Compact)">
+        <button id="layout-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+        </button>
+    </div>
+
     <div class="dns-legend">
         <div class="legend-title">DNS Query Types</div>
         <div class="legend-items">
@@ -156,6 +174,51 @@
         </div>
     </div>
 
+    <div class="modal" id="source-location-modal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>DNS Source Location</h2>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-section">
+                    <label for="city-preset">Quick Select City</label>
+                    <select id="city-preset" class="form-select">
+                        <option value="">Select a city...</option>
+                    </select>
+                </div>
+
+                <div class="form-section">
+                    <label>Custom Coordinates</label>
+                    <div class="coordinate-inputs">
+                        <input type="number" id="source-lat" placeholder="Latitude" step="0.0001" min="-90" max="90"
+                            class="form-input">
+                        <input type="number" id="source-lng" placeholder="Longitude" step="0.0001" min="-180" max="180"
+                            class="form-input">
+                    </div>
+                    <div class="validation-message" id="validation-message"></div>
+                </div>
+
+                <div class="form-section">
+                    <label for="source-city">Location Name</label>
+                    <input type="text" id="source-city" placeholder="e.g., London" maxlength="50" class="form-input">
+                </div>
+
+                <div class="modal-info">
+                    <p>💡 <strong>Tip:</strong> Select a city from the dropdown or enter custom coordinates</p>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button id="reset-source-btn" class="btn-secondary">Reset to Default</button>
+                <button id="save-source-btn" class="btn-primary">Save Location</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
+
 </html>
