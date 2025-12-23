@@ -2,6 +2,10 @@
 
 A real-time visualization of DNS queries on a world map. Watch your network's DNS traffic as animated arcs connecting your location to servers around the globe.
 
+# Demo
+
+![Alt text for the image](DNSvizAnimation.webp)
+
 ## What is this?
 
 When you visit a website, your computer asks "where is google.com?" - that's a DNS query. This tool connects to AdGuard Home, grabs those queries, figures out where the servers are located, and draws them on a map. It's pretty neat to see where your internet traffic actually goes.
