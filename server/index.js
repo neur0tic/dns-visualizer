@@ -63,7 +63,8 @@ app.use(helmet({
       connectSrc: ["'self'", "ws:", "wss:", "https://unpkg.com", "https://demotiles.maplibre.org"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       workerSrc: ["'self'", "blob:"],
-      childSrc: ["'self'", "blob:"]
+      childSrc: ["'self'", "blob:"],
+      upgradeInsecureRequests: null
     }
   },
   crossOriginEmbedderPolicy: false
