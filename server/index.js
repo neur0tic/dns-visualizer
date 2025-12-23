@@ -1,8 +1,6 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import http from 'http';
-import https from 'https';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -18,9 +16,6 @@ const __dirname = path.dirname(__filename);
 
 const config = {
   port: parseInt(process.env.PORT) || 8080,
-  httpsPort: parseInt(process.env.HTTPS_PORT) || 8443,
-  sslKey: process.env.SSL_KEY_PATH,
-  sslCert: process.env.SSL_CERT_PATH,
   pollInterval: parseInt(process.env.POLL_INTERVAL_MS) || 2000,
   statsInterval: parseInt(process.env.STATS_INTERVAL_MS) || 5000,
   maxProcessedIds: parseInt(process.env.MAX_PROCESSED_IDS) || 1000,
@@ -58,40 +53,19 @@ const geoService = new GeoService(config.sourceLat, config.sourceLng, {
 const app = express();
 const server = http.createServer(app);
 
-// Optional HTTPS server
-let httpsServer = null;
-if (config.sslKey && config.sslCert) {
-  try {
-    const sslOptions = {
-      key: fs.readFileSync(config.sslKey),
-      cert: fs.readFileSync(config.sslCert)
-    };
-    httpsServer = https.createServer(sslOptions, app);
-    console.log('✅ SSL certificates loaded - HTTPS enabled');
-  } catch (error) {
-    console.warn('⚠️  SSL certificate error:', error.message);
-    console.warn('⚠️  HTTPS disabled - running HTTP only');
-  }
-}
-
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://unpkg.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://unpkg.com"],
-      scriptSrc: ["'self'", "https://unpkg.com", "'unsafe-eval'"],
-      connectSrc: ["'self'", "https://ip-api.com", "wss:", "ws:"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+      connectSrc: ["'self'", "ws:", "wss:", "https://unpkg.com", "https://demotiles.maplibre.org"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
       workerSrc: ["'self'", "blob:"],
       childSrc: ["'self'", "blob:"]
     }
   },
-  // Disable HSTS to allow both HTTP and HTTPS without forced upgrades
-  strictTransportSecurity: false,
-  // Disable Cross-Origin-Opener-Policy to prevent warnings on HTTP
-  // This header only works properly on HTTPS or localhost
-  crossOriginOpenerPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
 
@@ -115,14 +89,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// WebSocket server on HTTP
 const wss = new WebSocketServer({ server });
-
-// WebSocket server on HTTPS (if enabled)
-let wssHttps = null;
-if (httpsServer) {
-  wssHttps = new WebSocketServer({ server: httpsServer });
-}
 
 const activeConnections = new Set();
 let dnsPollingInterval = null;
@@ -372,10 +339,10 @@ function broadcast(message) {
   });
 }
 
-// Handle WebSocket connections (shared handler for both HTTP and HTTPS)
-function handleWebSocketConnection(ws, req) {
-  const clientIp = req ? req.socket.remoteAddress : 'unknown'; // req might be undefined for HTTPS ws
+wss.on('connection', (ws, req) => {
+  const clientIp = req.socket.remoteAddress;
   console.log(`✅ Client connected from ${clientIp} (Total: ${activeConnections.size + 1})`);
+
   activeConnections.add(ws);
   startPolling();
 
@@ -399,15 +366,7 @@ function handleWebSocketConnection(ws, req) {
       maxConcurrentArcs: config.maxConcurrentArcs
     }
   }));
-}
-
-// HTTP WebSocket
-wss.on('connection', handleWebSocketConnection);
-
-// HTTPS WebSocket (if enabled)
-if (wssHttps) {
-  wssHttps.on('connection', handleWebSocketConnection);
-}
+});
 
 function gracefulShutdown(signal) {
   console.log(`\n${signal} received. Closing gracefully...`);
@@ -418,39 +377,14 @@ function gracefulShutdown(signal) {
     ws.close(1000, 'Server shutting down');
   });
 
-  let serversClosed = 0;
-  const totalServers = 1 + (wssHttps ? 1 : 0) + 1 + (httpsServer ? 1 : 0);
-
-  const checkAndExit = () => {
-    serversClosed++;
-    if (serversClosed === totalServers) {
-      process.exit(0);
-    }
-  };
-
   wss.close(() => {
-    console.log('HTTP WebSocket server closed');
-    checkAndExit();
+    console.log('WebSocket server closed');
   });
-
-  if (wssHttps) {
-    wssHttps.close(() => {
-      console.log('HTTPS WebSocket server closed');
-      checkAndExit();
-    });
-  }
 
   server.close(() => {
     console.log('HTTP server closed');
-    checkAndExit();
+    process.exit(0);
   });
-
-  if (httpsServer) {
-    httpsServer.close(() => {
-      console.log('HTTPS server closed');
-      checkAndExit();
-    });
-  }
 
   setTimeout(() => {
     console.error('Forced shutdown after timeout');
@@ -460,24 +394,12 @@ function gracefulShutdown(signal) {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Start HTTP server
 server.listen(config.port, () => {
   console.log(`\n🚀 DNS Visualization Dashboard`);
-  console.log(`📡 HTTP server running on http://localhost:${config.port}`);
+  console.log(`📡 Server running on http://localhost:${config.port}`);
   console.log(`🔄 Polling interval: ${config.pollInterval}ms`);
   console.log(`📊 Stats interval: ${config.statsInterval}ms`);
   console.log(`🌍 Source location: Kuala Lumpur (${config.sourceLat}, ${config.sourceLng})`);
   console.log(`🔒 Environment: ${config.nodeEnv}`);
-  if (!httpsServer) {
-    console.log(`\n⚠️  HTTPS disabled - no SSL certificates provided`);
-  }
   console.log(`\nWaiting for client connections...\n`);
 });
-
-// Start HTTPS server (if enabled)
-if (httpsServer) {
-  httpsServer.listen(config.httpsPort, () => {
-    console.log(`🔒 HTTPS server running on https://localhost:${config.httpsPort}`);
-  });
-}
