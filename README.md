@@ -152,3 +152,6 @@ MIT
 ## Credits
 
 Built with MapLibre GL, AdGuard Home, and ip-api.com.
+
+## Author
+Azwan Ngali (azwan.ngali@gmail.com)
