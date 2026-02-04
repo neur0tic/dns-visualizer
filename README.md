@@ -31,15 +31,47 @@ docker run -d \
   --name dns-visualizer \
   -p 8080:8080 \
   --env-file .env \
-  azwanngali/adguard-dns-visualizer:latest
+  azwanngali/dns-visualizer:latest
 ```
 
 Open `http://localhost:8080` and you should see a map. Browse some websites and watch the arcs appear.
 
-To stop the container:
+#### Using Docker Compose
+
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  dns-dashboard:
+    image: azwanngali/dns-visualizer:latest
+    container_name: dns-visualization-dashboard
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${PORT:-8080}/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - dns-network
+
+networks:
+  dns-network:
+    driver: bridge
+```
+
+Then run:
 ```bash
-docker stop dns-visualizer
-docker rm dns-visualizer
+docker compose up -d
+```
+
+To stop:
+```bash
+docker compose down
 ```
 
 ### Option 2: Node.js
