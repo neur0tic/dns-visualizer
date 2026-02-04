@@ -31,7 +31,7 @@ docker run -d \
   --name dns-visualizer \
   -p 8080:8080 \
   --env-file .env \
-  azwanngali/dns-visualizer:latest
+  azwanngali/adguard-dns-visualizer:latest
 ```
 
 Open `http://localhost:8080` and you should see a map. Browse some websites and watch the arcs appear.
@@ -43,7 +43,7 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   dns-dashboard:
-    image: azwanngali/dns-visualizer:latest
+    image: azwanngali/adguard-dns-visualizer:latest
     container_name: dns-visualization-dashboard
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
