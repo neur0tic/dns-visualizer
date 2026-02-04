@@ -24,6 +24,7 @@ ADGUARD_USERNAME=admin
 ADGUARD_PASSWORD=your_password
 SOURCE_LAT=3.139
 SOURCE_LNG=101.6869
+PORT=8080
 EOF
 
 # Run the container
@@ -187,3 +188,4 @@ Built with MapLibre GL, AdGuard Home, and ip-api.com.
 
 ## Author
 Azwan Ngali (azwan.ngali@gmail.com)
+https://merakit.my
